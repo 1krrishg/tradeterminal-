@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Design System — Shipment risk check
+   Calm, minimal, structured. Stripe / Linear / Notion inspired.
+   Single accent: deep blue. All colors HSL.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    /* Soft off-white canvas */
+    --background: 40 20% 98%;
+    --foreground: 220 15% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 12%;
+
+    /* Single accent — deep, trustworthy blue */
+    --primary: 222 65% 32%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 222 60% 96%;
+
+    --secondary: 220 15% 96%;
+    --secondary-foreground: 220 15% 18%;
+
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 10% 45%;
+
+    /* Accent same as primary — single-accent system */
+    --accent: 222 65% 32%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Risk severity — subtle, not flashy */
+    --warning: 32 85% 45%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 32 85% 96%;
+
+    --success: 152 50% 36%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 152 40% 95%;
+
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 65% 97%;
+
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 222 65% 32%;
+
+    --radius: 0.5rem;
+
+    --shadow-sm: 0 1px 2px hsl(220 15% 12% / 0.04);
+    --shadow-card: 0 1px 3px hsl(220 15% 12% / 0.04), 0 4px 12px hsl(220 15% 12% / 0.04);
+    --shadow-elevated: 0 4px 20px hsl(220 15% 12% / 0.06), 0 10px 40px hsl(220 15% 12% / 0.04);
+
+    /* Sidebar (kept) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 15% 18%;
+    --sidebar-primary: 222 65% 32%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 96%;
+    --sidebar-accent-foreground: 220 15% 18%;
+    --sidebar-border: 220 15% 90%;
+    --sidebar-ring: 222 65% 32%;
+  }
+
+  .dark {
+    /* Same tokens — page is light-first, dark mode mirrors for safety */
+    --background: 40 20% 98%;
+    --foreground: 220 15% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 12%;
+    --primary: 222 65% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 96%;
+    --secondary-foreground: 220 15% 18%;
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 222 65% 32%;
+    --accent-foreground: 0 0% 100%;
+    --warning: 32 85% 45%;
+    --warning-foreground: 0 0% 100%;
+    --success: 152 50% 36%;
+    --success-foreground: 0 0% 100%;
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 222 65% 32%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Tighter, confident type */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+  }
+}

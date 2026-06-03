@@ -1,0 +1,767 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Send, Plus, MessageSquare, LogOut, Paperclip,
+  FileCheck2, ShieldAlert, AlertTriangle, X, Menu,
+  CheckCircle2, XCircle, Wrench,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { runRedFlagEngine } from "@/lib/redFlagEngine";
+import { reconcileDocuments } from "@/lib/documentReconciler";
+import { useStreamingChat } from "@/hooks/useStreamingChat";
+import { validateGSTIN, validateHSN, editLorryReceipt } from "@/lib/agentTools";
+import { useShipments } from "@/hooks/useShipments";
+import { matchRegulations } from "@/lib/regulationMatcher";
+import type { RegulationMatch } from "@/lib/regulationMatcher";
+import { detectFixRequest } from "@/lib/fixRequestDetector";
+import { RegulationImpactBanner } from "@/components/chat/RegulationImpactBanner";
+import { EditApprovalCard } from "@/components/chat/EditApprovalCard";
+import type { RiskCategory } from "@/types/risk";
+import type { LorryReceiptData } from "@/types/lr";
+
+interface Conversation { id: string; title: string; created_at: string; user_id: string; }
+interface Message { id: string; conversation_id: string; role: "user" | "assistant"; content: string; created_at: string; }
+
+interface PendingPatch {
+  diff: Array<{ field: string; old: any; new: any; reason: string }>;
+  patch: Record<string, any>;
+  explanation: string;
+  messageId: string;
+}
+
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
+const HSN_RE = /^\d{4}(\d{2}(\d{2})?)?$/;
+
+function detectGSTIN(text: string): string | null {
+  const tokens = text.trim().split(/\s+/);
+  for (const t of tokens) {
+    if (GSTIN_RE.test(t)) return t.toUpperCase();
+  }
+  return null;
+}
+
+function detectHSN(text: string): string | null {
+  const tokens = text.trim().split(/\s+/);
+  for (const t of tokens) {
+    const cleaned = t.replace(/[\s.]/g, "");
+    if (HSN_RE.test(cleaned) && (cleaned.length === 4 || cleaned.length === 6 || cleaned.length === 8)) return cleaned;
+  }
+  return null;
+}
+
+// ─── Card components ────────────────────────────────────────────────────────
+
+function ExtractionCard({ data, extractedData }: { data: Record<string, unknown>; extractedData?: LorryReceiptData | null }) {
+  const navigate = useNavigate();
+  return (
+    <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4 max-w-sm w-full">
+      <div className="flex items-center gap-2 mb-3">
+        <FileCheck2 className="h-5 w-5 text-green-600" />
+        <span className="font-semibold text-green-800 dark:text-green-400 text-sm">Lorry Receipt Extracted</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-3">
+        {[
+          ["Consignor", data.consignor_name],
+          ["Invoice No.", data.invoice_number],
+          ["Gross Weight", data.total_gross_weight],
+          ["Total Value", data.total_value],
+          ["Line Items", data.line_items_count],
+          ["Confidence", data.confidence !== undefined ? `${data.confidence}%` : undefined],
+        ].map(([label, val]) => (
+          <div key={String(label)}>
+            <div className="text-muted-foreground">{label}</div>
+            <div className="font-medium truncate">{String(val ?? "—")}</div>
+          </div>
+        ))}
+      </div>
+      <Button size="sm" variant="outline" className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-100"
+        onClick={() => navigate("/bilty", { state: { data: extractedData } })}>
+        View full bilty
+      </Button>
+    </div>
+  );
+}
+
+const CATEGORY_STYLES: Record<RiskCategory, { badge: string; label: string }> = {
+  clean: { badge: "bg-green-100 text-green-800 border-green-200", label: "Clean" },
+  attention: { badge: "bg-yellow-100 text-yellow-800 border-yellow-200", label: "Needs Attention" },
+  problem: { badge: "bg-red-100 text-red-800 border-red-200", label: "Likely Problem" },
+};
+
+function RiskCard({ data }: { data: Record<string, unknown> }) {
+  const category = (data.category as RiskCategory) ?? "clean";
+  const styles = CATEGORY_STYLES[category];
+  const topFlags = Array.isArray(data.top_flags) ? data.top_flags as string[] : [];
+  return (
+    <div className="rounded-xl border border-border bg-muted/40 p-4 max-w-sm w-full">
+      <div className="flex items-center gap-2 mb-3">
+        <ShieldAlert className="h-5 w-5" />
+        <span className="font-semibold text-sm">Risk Analysis</span>
+      </div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${styles.badge}`}>
+          Score: {Number(data.score ?? 0)} — {styles.label}
+        </span>
+      </div>
+      {topFlags.length > 0 && (
+        <ul className="space-y-1 mb-3">
+          {topFlags.slice(0, 3).map((flag, i) => (
+            <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-yellow-500" />
+              {flag}
+            </li>
+          ))}
+        </ul>
+      )}
+      {data.needs_review && (
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 border border-orange-200 px-2.5 py-0.5 text-xs font-medium text-orange-800">
+          <AlertTriangle className="h-3 w-3" />Manual review recommended
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GSTINBadge({ gstin, result }: { gstin: string; result: ReturnType<typeof validateGSTIN> }) {
+  return (
+    <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs max-w-sm w-full ${result.valid ? "border-green-200 bg-green-50 dark:bg-green-950/20" : "border-red-200 bg-red-50 dark:bg-red-950/20"}`}>
+      {result.valid
+        ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+        : <XCircle className="h-4 w-4 text-red-600 shrink-0" />}
+      <div>
+        <div className={`font-semibold ${result.valid ? "text-green-800 dark:text-green-400" : "text-red-800 dark:text-red-400"}`}>
+          GSTIN {result.valid ? "Valid" : "Invalid"}: {gstin}
+        </div>
+        {result.valid
+          ? <div className="text-muted-foreground mt-0.5">State: {result.stateCode} · PAN: {result.pan}</div>
+          : <div className="text-red-700 dark:text-red-400 mt-0.5">{result.error}</div>}
+      </div>
+    </div>
+  );
+}
+
+function HSNBadge({ hsn, result }: { hsn: string; result: ReturnType<typeof validateHSN> }) {
+  return (
+    <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs max-w-sm w-full ${result.valid ? "border-blue-200 bg-blue-50 dark:bg-blue-950/20" : "border-red-200 bg-red-50 dark:bg-red-950/20"}`}>
+      {result.valid
+        ? <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
+        : <XCircle className="h-4 w-4 text-red-600 shrink-0" />}
+      <div>
+        <div className={`font-semibold ${result.valid ? "text-blue-800 dark:text-blue-400" : "text-red-800 dark:text-red-400"}`}>
+          HSN {result.valid ? "Valid" : "Invalid"}: {hsn}
+        </div>
+        {result.valid
+          ? <div className="text-muted-foreground mt-0.5">{result.digits}-digit code</div>
+          : <div className="text-red-700 dark:text-red-400 mt-0.5">{result.error}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({
+  msg,
+  latestExtracted,
+  pendingPatch,
+  onApprove,
+  onReject,
+  regulationMatches,
+  onDismissRegulations,
+}: {
+  msg: Message;
+  latestExtracted?: LorryReceiptData | null;
+  pendingPatch?: PendingPatch | null;
+  onApprove?: () => void;
+  onReject?: () => void;
+  regulationMatches?: RegulationMatch[];
+  onDismissRegulations?: () => void;
+}) {
+  if (msg.content.startsWith("__EXTRACTION_CARD__")) {
+    try {
+      const json = JSON.parse(msg.content.slice("__EXTRACTION_CARD__".length));
+      return <div className="flex justify-start"><ExtractionCard data={json} extractedData={latestExtracted} /></div>;
+    } catch { /* fall through */ }
+  }
+  if (msg.content.startsWith("__RISK_CARD__")) {
+    try {
+      const json = JSON.parse(msg.content.slice("__RISK_CARD__".length));
+      return <div className="flex justify-start"><RiskCard data={json} /></div>;
+    } catch { /* fall through */ }
+  }
+  if (msg.content.startsWith("__REGULATION_BANNER__")) {
+    if (regulationMatches && regulationMatches.length > 0 && onDismissRegulations) {
+      try {
+        const json = JSON.parse(msg.content.slice("__REGULATION_BANNER__".length));
+        return (
+          <div className="flex justify-start w-full max-w-lg">
+            <RegulationImpactBanner
+              matches={regulationMatches}
+              corridor={json.corridor ?? ""}
+              onDismiss={onDismissRegulations}
+            />
+          </div>
+        );
+      } catch { /* fall through */ }
+    }
+    return null;
+  }
+  if (msg.content.startsWith("__GSTIN_BADGE__")) {
+    try {
+      const json = JSON.parse(msg.content.slice("__GSTIN_BADGE__".length));
+      return <div className="flex justify-start"><GSTINBadge gstin={json.gstin} result={json.result} /></div>;
+    } catch { /* fall through */ }
+  }
+  if (msg.content.startsWith("__HSN_BADGE__")) {
+    try {
+      const json = JSON.parse(msg.content.slice("__HSN_BADGE__".length));
+      return <div className="flex justify-start"><HSNBadge hsn={json.hsn} result={json.result} /></div>;
+    } catch { /* fall through */ }
+  }
+  if (msg.content.startsWith("__EDIT_APPROVAL_CARD__")) {
+    try {
+      const json = JSON.parse(msg.content.slice("__EDIT_APPROVAL_CARD__".length));
+      const isThisPending = pendingPatch?.messageId === msg.id;
+      return (
+        <div className="flex justify-start">
+          <EditApprovalCard
+            title={json.explanation ?? "Proposed Changes"}
+            diff={json.diff ?? []}
+            onApprove={isThisPending && onApprove ? onApprove : () => {}}
+            onReject={isThisPending && onReject ? onReject : () => {}}
+            isApplied={!isThisPending && json.applied === true}
+          />
+        </div>
+      );
+    } catch { /* fall through */ }
+  }
+  return (
+    <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+      <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+        msg.role === "user" ? "bg-foreground text-background" : "bg-muted text-foreground"
+      }`}>
+        {msg.content}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
+
+export default function ChatPage() {
+  const navigate = useNavigate();
+  const { conversationId } = useParams<{ conversationId: string }>();
+  const { toast } = useToast();
+  const { sendMessage, streamingText, isStreaming } = useStreamingChat();
+  const { saveShipment } = useShipments();
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [latestExtracted, setLatestExtracted] = useState<LorryReceiptData | null>(null);
+  const [lastExtractedData, setLastExtractedData] = useState<Record<string, any> | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [regulationMatches, setRegulationMatches] = useState<RegulationMatch[]>([]);
+  const [pendingPatch, setPendingPatch] = useState<PendingPatch | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { navigate("/auth"); return; }
+      setUserId(session.user.id);
+      fetchConversations(session.user.id);
+    });
+  }, [navigate]);
+
+  useEffect(() => {
+    if (conversationId) fetchMessages(conversationId);
+    else { setMessages([]); setRegulationMatches([]); setPendingPatch(null); }
+  }, [conversationId]);
+
+  useEffect(() => { scrollToBottom(); }, [messages, loading, isStreaming, streamingText]);
+
+  const fetchConversations = async (uid: string) => {
+    const { data } = await supabase.from("conversations").select("*").eq("user_id", uid).order("updated_at", { ascending: false });
+    setConversations(data || []);
+  };
+
+  const fetchMessages = async (convId: string) => {
+    const { data } = await supabase.from("messages").select("*").eq("conversation_id", convId).order("created_at", { ascending: true });
+    setMessages((data as Message[]) || []);
+  };
+
+  const insertMessage = async (convId: string, role: "user" | "assistant", content: string): Promise<Message | null> => {
+    const { data, error } = await supabase.from("messages").insert({ conversation_id: convId, role, content }).select().single();
+    if (error) { console.error(error); return null; }
+    return data as Message;
+  };
+
+  const handleLogout = async () => { await supabase.auth.signOut(); navigate("/auth"); };
+
+  const handleNewConversation = async (prefill?: string) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from("conversations").insert({ title: "New Shipment", user_id: userId }).select().single();
+    if (error) { toast({ title: "Error", description: "Failed to create conversation.", variant: "destructive" }); return; }
+    setConversations(prev => [data, ...prev]);
+    if (prefill) setInputText(prefill);
+    navigate(`/chat/${data.id}`);
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      if (file.type === "application/pdf") {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        return;
+      }
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1200;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("load failed")); };
+      img.src = url;
+    });
+
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setAttachedFiles(prev => [...prev, ...files]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const runExtraction = async (convId: string, files: File[]) => {
+    const userMsg = await insertMessage(convId, "user", `I uploaded ${files.map(f => f.name).join(", ")}. Please analyze this shipment.`);
+    if (userMsg) setMessages(prev => [...prev, userMsg]);
+
+    const loadMsg: Message = { id: "loading", conversation_id: convId, role: "assistant", content: "Extracting documents…", created_at: new Date().toISOString() };
+    setMessages(prev => [...prev, loadMsg]);
+    setLoading(true);
+
+    try {
+      const documents = await Promise.all(files.map(async (f) => {
+        const base64 = await fileToBase64(f);
+        return { name: f.name, type: "image", data: base64, category: "INVOICE" };
+      }));
+
+      const { data, error } = await supabase.functions.invoke("extract-lr", { body: { documents, generatePdf: false } });
+      if (error || data?.error) throw new Error(error?.message || data?.error);
+
+      const extracted = data.data as LorryReceiptData;
+      const confidence = data.extraction_confidence ?? 80;
+      setLatestExtracted(extracted);
+      setLastExtractedData(extracted as Record<string, any>);
+
+      setMessages(prev => prev.filter(m => m.id !== "loading"));
+
+      const cardContent = "__EXTRACTION_CARD__" + JSON.stringify({
+        consignor_name: extracted.consignor_name,
+        invoice_number: extracted.invoice_number,
+        total_gross_weight: extracted.summary?.total_gross_weight || extracted.gross_weight_kg,
+        total_value: extracted.summary?.total_value || extracted.declared_value,
+        line_items_count: extracted.line_items?.length ?? 0,
+        confidence,
+      });
+      const extractionMsg = await insertMessage(convId, "assistant", cardContent);
+      if (extractionMsg) setMessages(prev => [...prev, extractionMsg]);
+
+      // Auto-run risk engine with reconciliation
+      const hasLCDocs = files.some(f => f.name.toLowerCase().includes("lc") || f.name.toLowerCase().includes("letter"));
+      const reconciliation = reconcileDocuments(extracted, hasLCDocs);
+      const risk = runRedFlagEngine(extracted as Parameters<typeof runRedFlagEngine>[0], reconciliation, confidence);
+      const riskContent = "__RISK_CARD__" + JSON.stringify({
+        score: risk.score,
+        category: risk.category,
+        triggered_count: risk.triggeredSignals.length,
+        top_flags: risk.triggeredSignals.slice(0, 3).map((s) => s.detail),
+        needs_review: risk.needsReview,
+      });
+      const riskMsg = await insertMessage(convId, "assistant", riskContent);
+      if (riskMsg) setMessages(prev => [...prev, riskMsg]);
+
+      // PHASE 4: Save shipment
+      try {
+        await saveShipment({
+          conversationId: convId,
+          extractedData: extracted as Record<string, any>,
+          riskScore: risk.score,
+          riskCategory: risk.category,
+        });
+      } catch (saveErr) {
+        console.error("Failed to save shipment:", saveErr);
+      }
+
+      // PHASE 4: Fetch regulations and match
+      try {
+        const { data: regulationsData } = await supabase.from("regulations").select("*");
+        const regulations = regulationsData ?? [];
+        if (regulations.length > 0) {
+          const corridor =
+            (extracted as any).corridor ??
+            (extracted as any).origin_state ??
+            "";
+          const matches = matchRegulations(
+            { corridor, extractedData: extracted as Record<string, any>, riskCategory: risk.category },
+            regulations
+          );
+          if (matches.length > 0) {
+            setRegulationMatches(matches);
+            const bannerContent = "__REGULATION_BANNER__" + JSON.stringify({ corridor, count: matches.length });
+            const bannerMsg = await insertMessage(convId, "assistant", bannerContent);
+            if (bannerMsg) setMessages(prev => [...prev, bannerMsg]);
+          }
+        }
+      } catch (regErr) {
+        console.error("Failed to fetch/match regulations:", regErr);
+      }
+
+    } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== "loading"));
+      toast({ title: "Extraction failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (loading || isStreaming) return;
+    if (!conversationId) { handleNewConversation(inputText || undefined); return; }
+
+    if (attachedFiles.length > 0) {
+      const files = [...attachedFiles];
+      setAttachedFiles([]);
+      setInputText("");
+      await runExtraction(conversationId, files);
+      return;
+    }
+
+    const text = inputText.trim();
+    if (!text) return;
+    setInputText("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+    // Client-side GSTIN validation
+    const gstinMatch = detectGSTIN(text);
+    if (gstinMatch) {
+      const result = validateGSTIN(gstinMatch);
+      const userMsg = await insertMessage(conversationId, "user", text);
+      if (userMsg) setMessages(prev => [...prev, userMsg]);
+      const badgeContent = "__GSTIN_BADGE__" + JSON.stringify({ gstin: gstinMatch, result });
+      const badgeMsg = await insertMessage(conversationId, "assistant", badgeContent);
+      if (badgeMsg) setMessages(prev => [...prev, badgeMsg]);
+      if (messages.filter(m => m.role === "user").length === 0) {
+        const newTitle = text.slice(0, 60);
+        await supabase.from("conversations").update({ title: newTitle }).eq("id", conversationId);
+        setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, title: newTitle } : c));
+      }
+      return;
+    }
+
+    // Client-side HSN validation
+    const hsnMatch = detectHSN(text);
+    if (hsnMatch) {
+      const result = validateHSN(hsnMatch);
+      const userMsg = await insertMessage(conversationId, "user", text);
+      if (userMsg) setMessages(prev => [...prev, userMsg]);
+      const badgeContent = "__HSN_BADGE__" + JSON.stringify({ hsn: hsnMatch, result });
+      const badgeMsg = await insertMessage(conversationId, "assistant", badgeContent);
+      if (badgeMsg) setMessages(prev => [...prev, badgeMsg]);
+      if (messages.filter(m => m.role === "user").length === 0) {
+        const newTitle = text.slice(0, 60);
+        await supabase.from("conversations").update({ title: newTitle }).eq("id", conversationId);
+        setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, title: newTitle } : c));
+      }
+      return;
+    }
+
+    // PHASE 5: Fix request detection
+    const hasExtractedData = !!lastExtractedData || messages.some(m => m.content.startsWith("__EXTRACTION_CARD__"));
+    const fixDetection = detectFixRequest(text, hasExtractedData);
+
+    if (fixDetection.isFixRequest && fixDetection.confidence >= 0.6 && lastExtractedData) {
+      const userMsg = await insertMessage(conversationId, "user", text);
+      if (userMsg) setMessages(prev => [...prev, userMsg]);
+
+      const fixLoadMsg: Message = {
+        id: "fix-loading",
+        conversation_id: conversationId,
+        role: "assistant",
+        content: "Analyzing document for fixes…",
+        created_at: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, fixLoadMsg]);
+      setLoading(true);
+
+      try {
+        const history = messages.map(m => ({ role: m.role, content: m.content }));
+        const { data: fixData, error: fixError } = await supabase.functions.invoke("fix-document", {
+          body: { extractedData: lastExtractedData, fixRequest: text, conversationHistory: history },
+        });
+
+        setMessages(prev => prev.filter(m => m.id !== "fix-loading"));
+
+        if (fixError || fixData?.error) throw new Error(fixError?.message || fixData?.error);
+
+        const { diff, patch, explanation } = fixData;
+
+        const cardContent = "__EDIT_APPROVAL_CARD__" + JSON.stringify({ diff, patch, explanation, applied: false });
+        const cardMsg = await insertMessage(conversationId, "assistant", cardContent);
+        if (cardMsg) {
+          setMessages(prev => [...prev, cardMsg]);
+          setPendingPatch({ diff, patch, explanation, messageId: cardMsg.id });
+        }
+      } catch (err) {
+        setMessages(prev => prev.filter(m => m.id !== "fix-loading"));
+        toast({ title: "Fix failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+
+      if (messages.filter(m => m.role === "user").length === 0) {
+        const newTitle = text.slice(0, 60);
+        await supabase.from("conversations").update({ title: newTitle }).eq("id", conversationId);
+        setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, title: newTitle } : c));
+      }
+      return;
+    }
+
+    const userMsg = await insertMessage(conversationId, "user", text);
+    if (!userMsg) return;
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+
+    // Auto-title
+    if (messages.filter(m => m.role === "user").length === 0) {
+      const newTitle = text.slice(0, 60);
+      await supabase.from("conversations").update({ title: newTitle }).eq("id", conversationId);
+      setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, title: newTitle } : c));
+    }
+
+    try {
+      const reply = await sendMessage(
+        conversationId,
+        text,
+        updatedMessages.map(m => ({ role: m.role, content: m.content }))
+      );
+      if (reply) {
+        const assistantMsg = await insertMessage(conversationId, "assistant", reply);
+        if (assistantMsg) setMessages(prev => [...prev, assistantMsg]);
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to get AI response.", variant: "destructive" });
+    }
+  };
+
+  const handleApproveEdit = async () => {
+    if (!pendingPatch || !lastExtractedData || !conversationId) return;
+    const { patch, explanation, messageId } = pendingPatch;
+    const { updated } = editLorryReceipt(lastExtractedData, patch, explanation);
+    setLastExtractedData(updated);
+    setLatestExtracted(updated as LorryReceiptData);
+
+    // Mark message as applied in DB
+    const updatedContent = "__EDIT_APPROVAL_CARD__" + JSON.stringify({
+      diff: pendingPatch.diff,
+      patch,
+      explanation,
+      applied: true,
+    });
+    await supabase.from("messages").update({ content: updatedContent }).eq("id", messageId);
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: updatedContent } : m));
+    setPendingPatch(null);
+
+    // Also update shipment if saved
+    try {
+      await saveShipment({
+        conversationId,
+        extractedData: updated,
+        riskScore: 0,
+        riskCategory: "clean",
+      });
+    } catch { /* non-critical */ }
+  };
+
+  const handleRejectEdit = () => {
+    setPendingPatch(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 96) + "px";
+  };
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const selectedConv = conversations.find(c => c.id === conversationId);
+
+  const SidebarContent = () => (
+    <>
+      <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+        <span className="font-semibold text-base tracking-tight">Ability</span>
+        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground h-8 w-8">
+          <LogOut className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="px-3 py-3">
+        <Button variant="outline" className="w-full justify-start gap-2 h-9 text-sm" onClick={() => { handleNewConversation(); setMobileSidebarOpen(false); }}>
+          <Plus className="h-4 w-4" />New conversation
+        </Button>
+      </div>
+      <ScrollArea className="flex-1 px-2">
+        <div className="flex flex-col gap-0.5 pb-4">
+          {conversations.length === 0 && (
+            <p className="text-xs text-muted-foreground px-3 py-2">No conversations yet</p>
+          )}
+          {conversations.map(conv => (
+            <button key={conv.id} onClick={() => { navigate(`/chat/${conv.id}`); setMobileSidebarOpen(false); }}
+              className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors hover:bg-accent hover:text-accent-foreground ${conv.id === conversationId ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}>
+              <div className="truncate text-sm font-medium">{conv.title}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{formatDate(conv.created_at)}</div>
+            </button>
+          ))}
+        </div>
+      </ScrollArea>
+    </>
+  );
+
+  const isBusy = loading || isStreaming;
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* Mobile sidebar overlay */}
+      {mobileSidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileSidebarOpen(false)} />
+          <aside className="absolute left-0 top-0 h-full w-64 z-50 flex flex-col border-r border-border bg-muted/95">
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-muted/20 shrink-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Main */}
+      <main className="flex flex-col flex-1 min-w-0 h-full">
+        {!conversationId ? (
+          <div className="flex flex-1 items-center justify-center p-6">
+            <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+              <MessageSquare className="h-12 w-12 text-muted-foreground opacity-30" />
+              <div>
+                <p className="text-lg font-semibold">Trade Operations Workspace</p>
+                <p className="text-sm text-muted-foreground mt-1">Upload documents, validate codes, check regulations.</p>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
+                {["Upload shipment docs", "Validate a GSTIN", "Check HSN code"].map(prompt => (
+                  <button key={prompt} onClick={() => handleNewConversation(prompt)}
+                    className="rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+              <Button onClick={() => handleNewConversation()} className="mt-2">
+                <Plus className="h-4 w-4 mr-2" />New conversation
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center px-4 py-3 border-b border-border shrink-0 gap-2">
+              <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => setMobileSidebarOpen(true)}>
+                <Menu className="h-4 w-4" />
+              </Button>
+              <h1 className="font-semibold text-sm truncate">{selectedConv?.title ?? "Conversation"}</h1>
+            </div>
+            <ScrollArea className="flex-1 px-4 py-4">
+              <div className="flex flex-col gap-3 max-w-3xl mx-auto">
+                {messages.map(msg => (
+                  <MessageBubble
+                    key={msg.id}
+                    msg={msg}
+                    latestExtracted={latestExtracted}
+                    pendingPatch={pendingPatch}
+                    onApprove={handleApproveEdit}
+                    onReject={handleRejectEdit}
+                    regulationMatches={regulationMatches}
+                    onDismissRegulations={() => setRegulationMatches([])}
+                  />
+                ))}
+                {isStreaming && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[75%] rounded-2xl px-4 py-2.5 bg-muted text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                      {streamingText || <span className="animate-pulse text-muted-foreground">Thinking…</span>}
+                    </div>
+                  </div>
+                )}
+                {loading && !isStreaming && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl px-4 py-2.5 bg-muted text-muted-foreground text-sm animate-pulse flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 shrink-0" />
+                      Thinking…
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Input */}
+            <div className="shrink-0 border-t border-border px-4 py-3">
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2 max-w-3xl mx-auto">
+                  {attachedFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1.5 rounded-full bg-muted border border-border px-3 py-1 text-xs">
+                      <span className="truncate max-w-[140px]">{f.name}</span>
+                      <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-foreground">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-end gap-2 max-w-3xl mx-auto">
+                <input ref={fileInputRef} type="file" accept=".pdf,image/*" multiple className="hidden" onChange={handleFilesSelected} />
+                <Button variant="ghost" size="icon" className="shrink-0 mb-0.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => fileInputRef.current?.click()} disabled={isBusy}>
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Textarea ref={textareaRef} value={inputText} onChange={handleTextareaChange} onKeyDown={handleKeyDown}
+                  placeholder={attachedFiles.length > 0 ? "Add a note or just press Send to extract…" : "Ask anything about your shipment…"}
+                  className="flex-1 resize-none min-h-[40px] max-h-[96px] py-2 text-sm" rows={1} disabled={isBusy} />
+                <Button size="icon" onClick={handleSend} disabled={isBusy || (!inputText.trim() && attachedFiles.length === 0)} className="shrink-0 mb-0.5">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
