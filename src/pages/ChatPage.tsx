@@ -556,10 +556,44 @@ export default function ChatPage() {
     }
 
     try {
+      // Build clean history for Groq — replace card messages with readable summaries
+      // and inject extracted data as context so the agent knows what was extracted
+      const cleanHistory = updatedMessages.map(m => {
+        if (m.content.startsWith("__EXTRACTION_CARD__")) {
+          try {
+            const card = JSON.parse(m.content.slice("__EXTRACTION_CARD__".length));
+            return { role: m.role as "user" | "assistant", content: `[Extraction complete: Consignor: ${card.consignor_name || "unknown"}, Invoice: ${card.invoice_number || "unknown"}, Weight: ${card.total_gross_weight || "unknown"} kg, Value: ${card.total_value || "unknown"}, Line items: ${card.line_items_count ?? 0}]` };
+          } catch { return null; }
+        }
+        if (m.content.startsWith("__RISK_CARD__") || m.content.startsWith("__REGULATION_BANNER__") || m.content.startsWith("__GSTIN_BADGE__") || m.content.startsWith("__EDIT_APPROVAL_CARD__")) {
+          return null;
+        }
+        return { role: m.role as "user" | "assistant", content: m.content };
+      }).filter(Boolean) as { role: "user" | "assistant"; content: string }[];
+
+      // Inject full extracted data as assistant context if available
+      if (lastExtractedData) {
+        const d = lastExtractedData as Record<string, any>;
+        const summary = [
+          `Extracted shipment data:`,
+          `Consignor: ${d.consignor_name || "N/A"} | GSTIN: ${d.consignor_gstin || "N/A"} | IEC: ${d.consignor_iec || "N/A"} | PAN: ${d.consignor_pan || "N/A"}`,
+          `Consignee: ${d.consignee_name || "N/A"}`,
+          `Notify Party: ${d.notify_party_name || "N/A"} | IEC: ${d.notify_party_iec || "N/A"}`,
+          `Invoice: ${d.invoice_number || "N/A"} dated ${d.invoice_date || "N/A"}`,
+          `From: ${d.from_location || d.origin_city || "N/A"} → To: ${d.destination_city || "N/A"}`,
+          `Vehicle: ${d.vehicle_number || "N/A"} | E-Way Bill: ${d.eway_bill_number || "N/A"}`,
+          `LC: ${d.lc_number || "None"} | LUT ARN: ${d.lut_arn || "None"}`,
+          `Line items: ${(d.line_items || []).map((i: any) => `${i.description} HSN:${i.hsn_code} Qty:${i.quantity} ${i.unit} Pkgs:${i.number_of_packages} NetWt:${i.net_weight_kg}kg GrossWt:${i.gross_weight_kg}kg Val:${i.value}`).join(" | ")}`,
+          `Total: Pkgs:${d.summary?.total_packages || "N/A"} NetWt:${d.summary?.total_net_weight || "N/A"}kg GrossWt:${d.summary?.total_gross_weight || "N/A"}kg Value:${d.summary?.total_value || "N/A"}`,
+          `Freight: ${d.freight_terms || "N/A"} | Delivery: ${d.delivery_terms || "N/A"}`,
+        ].join("\n");
+        cleanHistory.unshift({ role: "assistant", content: summary });
+      }
+
       const reply = await sendMessage(
         conversationId,
         text,
-        updatedMessages.map(m => ({ role: m.role, content: m.content }))
+        cleanHistory
       );
       if (reply) {
         const assistantMsg = await insertMessage(conversationId, "assistant", reply);
