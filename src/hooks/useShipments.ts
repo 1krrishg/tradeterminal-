@@ -39,7 +39,17 @@ export function useShipments() {
       const { extractedData, conversationId, riskScore, riskCategory } = input
 
       const invoiceNumber = extractedData?.invoice_number ?? null
-      const invoiceDate = extractedData?.invoice_date ?? null
+      const rawDate = extractedData?.invoice_date ?? null
+      // Normalize date to YYYY-MM-DD for Postgres (handles DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY)
+      let invoiceDate: string | null = null
+      if (rawDate) {
+        const dotMatch = rawDate.match(/^(\d{2})[.\/\-](\d{2})[.\/\-](\d{4})$/)
+        if (dotMatch) {
+          invoiceDate = `${dotMatch[3]}-${dotMatch[2]}-${dotMatch[1]}`
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+          invoiceDate = rawDate
+        }
+      }
       const title = invoiceNumber ? `Shipment #${invoiceNumber}` : `Shipment ${conversationId.slice(0, 8)}`
 
       const corridor =
