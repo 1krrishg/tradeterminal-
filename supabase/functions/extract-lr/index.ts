@@ -666,11 +666,56 @@ CRITICAL REMINDERS:
 
 Return ONLY valid JSON.`;
 
-    // Build Mistral message content
+    // Upload PDFs to Mistral Files API and get signed URLs; images sent as base64
+    const uploadedFileIds: string[] = [];
     const userContent: any[] = [{ type: "text", text: userText }];
+
     for (const doc of documents) {
       if (doc.type === "image" && doc.data) {
-        userContent.push({ type: "image_url", image_url: doc.data });
+        const base64Match = doc.data.match(/^data:([^;]+);base64,(.+)$/);
+        const mimeType = base64Match?.[1] ?? "image/jpeg";
+        const isPdf = mimeType === "application/pdf";
+
+        if (isPdf && base64Match) {
+          // Upload PDF to Mistral Files API
+          try {
+            const binaryStr = atob(base64Match[2]);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+            const formData = new FormData();
+            formData.append("purpose", "ocr");
+            formData.append("file", new Blob([bytes], { type: "application/pdf" }), doc.name || "document.pdf");
+
+            const uploadRes = await fetch("https://api.mistral.ai/v1/files", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${MISTRAL_API_KEY}` },
+              body: formData,
+            });
+
+            if (uploadRes.ok) {
+              const uploadData = await uploadRes.json();
+              const fileId = uploadData.id;
+              uploadedFileIds.push(fileId);
+
+              // Get signed URL
+              const signedRes = await fetch(`https://api.mistral.ai/v1/files/${fileId}/url?expiry=1`, {
+                headers: { "Authorization": `Bearer ${MISTRAL_API_KEY}` },
+              });
+              if (signedRes.ok) {
+                const signedData = await signedRes.json();
+                userContent.push({ type: "document_url", document_url: signedData.url });
+              }
+            } else {
+              console.error("PDF upload failed:", await uploadRes.text());
+            }
+          } catch (uploadErr) {
+            console.error("PDF upload error:", uploadErr);
+          }
+        } else if (!isPdf) {
+          // Send image as base64
+          userContent.push({ type: "image_url", image_url: { url: doc.data } });
+        }
       } else if (doc.type === "text" && doc.content) {
         userContent.push({ type: "text", text: `\n--- ${doc.category || "Doc"}: ${doc.name} ---\n${doc.content}` });
       }
@@ -972,6 +1017,14 @@ Return ONLY valid JSON.`;
     let pdfHtml = null;
     if (generatePdf) {
       pdfHtml = generateBiltyHTML(result);
+    }
+
+    // Clean up uploaded files from Mistral storage
+    for (const fileId of uploadedFileIds) {
+      fetch(`https://api.mistral.ai/v1/files/${fileId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${MISTRAL_API_KEY}` },
+      }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ data: result, pdfHtml, extraction_confidence, analysis }), {
