@@ -412,8 +412,9 @@ export default function ChatPage() {
           riskScore: risk.score,
           riskCategory: risk.category,
         });
-      } catch (saveErr) {
+      } catch (saveErr: any) {
         console.error("Failed to save shipment:", saveErr);
+        toast({ title: "Save failed", description: saveErr?.message || JSON.stringify(saveErr), variant: "destructive" });
       }
 
       // PHASE 4: Fetch regulations and match

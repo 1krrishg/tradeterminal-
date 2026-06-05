@@ -99,7 +99,7 @@ export function useShipments() {
           .insert({ ...upsertPayload, created_at: new Date().toISOString() })
           .select("id")
           .single()
-        if (error) throw error
+        if (error) throw new Error(`Insert failed: ${error.message} (code: ${error.code})`)
         shipmentId = data.id
       }
 

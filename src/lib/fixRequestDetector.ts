@@ -37,10 +37,17 @@ const PATTERNS: Array<{
   },
 ]
 
-const GENERAL_FIX_KEYWORDS = ['fix', 'correct', 'update', 'change', 'edit', 'wrong']
+// Must have an action verb to be a real fix request, not just a question
+const ACTION_VERBS = ['please fix', 'please correct', 'please update', 'please change', 'can you fix', 'can you correct', 'can you update', 'can you change', 'update the', 'change the', 'fix the', 'correct the', 'edit the']
 
 export function detectFixRequest(message: string, hasExtractedData: boolean): FixRequestDetection {
   const lower = message.toLowerCase()
+
+  // Must start with or contain an action verb to be a fix request
+  const hasActionVerb = ACTION_VERBS.some(v => lower.includes(v))
+  if (!hasActionVerb) {
+    return { isFixRequest: false, fixType: null, confidence: 0, relevantFields: [] }
+  }
 
   for (const pattern of PATTERNS) {
     for (const keyword of pattern.keywords) {
@@ -56,22 +63,13 @@ export function detectFixRequest(message: string, hasExtractedData: boolean): Fi
   }
 
   if (hasExtractedData) {
-    for (const keyword of GENERAL_FIX_KEYWORDS) {
-      if (lower.includes(keyword)) {
-        return {
-          isFixRequest: true,
-          fixType: 'general_fix',
-          confidence: 0.6,
-          relevantFields: [],
-        }
-      }
+    return {
+      isFixRequest: true,
+      fixType: 'general_fix',
+      confidence: 0.6,
+      relevantFields: [],
     }
   }
 
-  return {
-    isFixRequest: false,
-    fixType: null,
-    confidence: 0,
-    relevantFields: [],
-  }
+  return { isFixRequest: false, fixType: null, confidence: 0, relevantFields: [] }
 }
