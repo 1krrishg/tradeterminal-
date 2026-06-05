@@ -231,14 +231,10 @@ serve(async (req) => {
       );
     }
 
-    // Key rotation: prefer key 2, fall back to key 1
-    const GEMINI_API_KEY_2 = Deno.env.get("GEMINI_API_KEY_2");
-    const GEMINI_API_KEY_1 = Deno.env.get("GEMINI_API_KEY");
-    const keyPool = [GEMINI_API_KEY_2, GEMINI_API_KEY_1].filter(Boolean) as string[];
-
-    if (keyPool.length === 0) {
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "AI service not configured. Set GEMINI_API_KEY in Supabase secrets." }),
+        JSON.stringify({ error: "AI service not configured. Set GROQ_API_KEY in Supabase secrets." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -266,47 +262,43 @@ Fix request: "${fixRequest.trim()}"
 
 Return ONLY a JSON object containing the fields to update and their new values. Do not include unchanged fields. Do not include any explanation outside the JSON.`;
 
-    const geminiBody = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+    const groqBody = {
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 4096,
     };
 
-    // Call Gemini with key rotation and retry on 429
     let response: Response | null = null;
-    for (let attempt = 0; attempt < keyPool.length * 2; attempt++) {
-      const key = keyPool[attempt % keyPool.length];
+    for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) {
-        const delay = attempt < keyPool.length ? 500 : Math.pow(2, attempt - keyPool.length + 1) * 1000;
-        console.log(`Rate limited or error, retrying in ${delay}ms (attempt ${attempt + 1})`);
-        await new Promise((r) => setTimeout(r, delay));
+        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
       }
-      console.log(`Calling Gemini fix API with key #${(attempt % keyPool.length) + 1} (attempt ${attempt + 1})...`);
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiBody),
-        }
-      );
+      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_API_KEY}` },
+        body: JSON.stringify(groqBody),
+      });
       if (response.status !== 429) break;
     }
 
     if (!response || !response.ok) {
       const errorText = await response?.text() ?? "No response";
-      console.error(`Gemini API error: ${response?.status}`, errorText);
+      console.error(`Groq API error: ${response?.status}`, errorText);
       if (response?.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Wait a minute and try again." }),
+          JSON.stringify({ error: "Rate limit exceeded. Wait a moment and try again." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`Gemini API error: ${response?.status} - ${errorText}`);
+      throw new Error(`Groq API error: ${response?.status} - ${errorText}`);
     }
 
     const aiResponse = await response.json();
-    const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = aiResponse.choices?.[0]?.message?.content;
     if (!content) {
       console.error("No AI response content:", JSON.stringify(aiResponse));
       throw new Error("No AI response content");
