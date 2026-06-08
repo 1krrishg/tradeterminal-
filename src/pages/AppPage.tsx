@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Loader2, FileSearch, RefreshCw, ArrowLeft, FileText, FileCheck2, ShieldAlert } from "lucide-react";
+import { Loader2, FileSearch, RefreshCw, ArrowLeft, FileText, FileCheck2, ShieldAlert, Truck, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { FileUpload, type DocumentCategory } from "@/components/FileUpload";
@@ -8,6 +8,8 @@ import { NavBar } from "@/components/landing/NavBar";
 import { Footer } from "@/components/landing/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import type { UploadedFile, LorryReceiptData } from "@/types/lr";
+
+type UserMode = "transporter" | "exporter";
 
 type CategorizedFiles = Record<DocumentCategory, UploadedFile[]>;
 
@@ -23,6 +25,7 @@ export default function AppPage() {
   const navigate = useNavigate();
   const [files, setFiles] = useState<CategorizedFiles>(emptyFiles);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [mode, setMode] = useState<UserMode | null>(null);
 
   const handleFilesAdd = useCallback((category: DocumentCategory, newFiles: File[]) => {
     const uploadedFiles: UploadedFile[] = newFiles.map((file) => ({
@@ -141,6 +144,99 @@ export default function AppPage() {
   const handleReset = () => setFiles(emptyFiles);
   const totalFiles = Object.values(files).flat().length;
 
+  const modeConfig = {
+    transporter: {
+      label: "Transporter",
+      headline: "Generate your bilty",
+      sub: "Upload your invoice, packing list, e-way bill and LC. Ability reads every document and builds a clean, ready-to-sign Lorry Receipt in under 2 minutes.",
+      btnLabel: "Generate bilty & run checks",
+      pill2: "Generate bilty",
+      steps: [
+        { num: "01", icon: <FileText className="h-4 w-4 text-primary" />, title: "Read every document", desc: "Invoice, packing list, e-way bill, LC — every field extracted cleanly into structured data." },
+        { num: "02", icon: <FileCheck2 className="h-4 w-4 text-primary" />, title: "Generate the LR", desc: "A bilty built from your documents. Conflicts resolved, missing fields surfaced, ready to sign." },
+        { num: "03", icon: <ShieldAlert className="h-4 w-4 text-destructive" />, title: "Catch errors before dispatch", desc: "Weight mismatches, GSTIN failures, invoice number gaps — flagged before the truck leaves the gate." },
+      ],
+    },
+    exporter: {
+      label: "Exporter",
+      headline: "Check your shipment documents",
+      sub: "Upload your invoice, packing list, e-way bill and LC. Ability checks every field for compliance errors, cross-document mismatches, and corridor-specific risks before your goods reach the border.",
+      btnLabel: "Check documents & flag risks",
+      pill2: "Compliance report",
+      steps: [
+        { num: "01", icon: <FileText className="h-4 w-4 text-primary" />, title: "Extract all fields", desc: "HSN codes, GSTIN, IEC, invoice values, weights — pulled from every document you upload." },
+        { num: "02", icon: <ShieldAlert className="h-4 w-4 text-destructive" />, title: "Cross-verify everything", desc: "Invoice vs packing list vs e-way bill vs LC. Any mismatch that can cause a customs hold gets flagged with a clear explanation." },
+        { num: "03", icon: <FileCheck2 className="h-4 w-4 text-primary" />, title: "Corridor-specific checks", desc: "Nepal, Bhutan, Bangladesh rules applied — LC requirements, permitted goods lists, duty implications, and what to fix before dispatch." },
+      ],
+    },
+  };
+
+  // Mode selector screen
+  if (!mode) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <NavBar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="container mx-auto px-6 py-16 max-w-2xl">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-10"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Back
+            </Link>
+            <div className="mb-10">
+              <div className="text-xs font-medium uppercase tracking-wider text-primary mb-3">Get started</div>
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-3">
+                What are you trying to do?
+              </h1>
+              <p className="text-muted-foreground">Pick your role. The tool adjusts to what you actually need.</p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {/* Transporter card */}
+              <button
+                onClick={() => setMode("transporter")}
+                className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-[var(--shadow-elevated)] transition-all p-6"
+              >
+                <div className="h-10 w-10 rounded-lg bg-secondary border border-border flex items-center justify-center mb-4 group-hover:bg-primary/10 group-hover:border-primary/30 transition-colors">
+                  <Truck className="h-5 w-5 text-primary" />
+                </div>
+                <div className="font-semibold text-foreground mb-1.5">I'm a Transporter</div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  I need to make a bilty / LR for this shipment. Upload documents, get a ready-to-sign Lorry Receipt.
+                </p>
+                <div className="mt-4 text-xs font-medium text-primary flex items-center gap-1">
+                  Generate bilty →
+                </div>
+              </button>
+
+              {/* Exporter card */}
+              <button
+                onClick={() => setMode("exporter")}
+                className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-[var(--shadow-elevated)] transition-all p-6"
+              >
+                <div className="h-10 w-10 rounded-lg bg-secondary border border-border flex items-center justify-center mb-4 group-hover:bg-primary/10 group-hover:border-primary/30 transition-colors">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+                <div className="font-semibold text-foreground mb-1.5">I'm an Exporter</div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  I need to check if my shipment documents are correct before the truck reaches the border.
+                </p>
+                <div className="mt-4 text-xs font-medium text-primary flex items-center gap-1">
+                  Check documents →
+                </div>
+              </button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const cfg = modeConfig[mode];
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <NavBar />
@@ -149,33 +245,29 @@ export default function AppPage() {
         {/* Page header */}
         <section className="border-b border-border bg-secondary/40">
           <div className="container mx-auto px-6 py-8">
-            <Link
-              to="/"
+            <button
+              onClick={() => { setMode(null); setFiles(emptyFiles); }}
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
             >
               <ArrowLeft className="h-3 w-3" />
-              Back to overview
-            </Link>
+              Change role
+            </button>
             <div className="flex items-start justify-between gap-6 flex-wrap">
               <div>
                 <div className="text-xs font-medium uppercase tracking-wider text-primary mb-2">
-                  The tool
+                  {cfg.label}
                 </div>
                 <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-2">
-                  Upload your trade documents
+                  {cfg.headline}
                 </h1>
-                <p className="text-muted-foreground max-w-xl">
-                  Drop your invoice, packing list, e-way bill and LC. Ability
-                  will extract the data, generate a clean bilty, and run risk
-                  checks across every field.
-                </p>
+                <p className="text-muted-foreground max-w-xl">{cfg.sub}</p>
               </div>
 
-              {/* Pipeline status */}
+              {/* Pipeline pills */}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Pill icon={<FileText className="h-3 w-3" />} label="Extract" />
                 <span>→</span>
-                <Pill icon={<FileCheck2 className="h-3 w-3" />} label="Generate bilty" />
+                <Pill icon={<FileCheck2 className="h-3 w-3" />} label={cfg.pill2} />
                 <span>→</span>
                 <Pill icon={<ShieldAlert className="h-3 w-3" />} label="Flag risk" />
               </div>
@@ -218,7 +310,7 @@ export default function AppPage() {
                       ) : (
                         <>
                           <FileSearch className="mr-2 h-4 w-4" />
-                          Generate bilty & run checks
+                          {cfg.btnLabel}
                         </>
                       )}
                     </Button>
@@ -238,26 +330,11 @@ export default function AppPage() {
                 </div>
               </div>
 
-              {/* Sidebar column — what happens next */}
+              {/* Sidebar */}
               <aside className="lg:col-span-5 space-y-4">
-                <SidebarStep
-                  num="01"
-                  icon={<FileText className="h-4 w-4 text-primary" />}
-                  title="Extract structured data"
-                  desc="Every field from every document — consignor, consignee, vehicle, HSN, GSTIN, weight, value — pulled out cleanly."
-                />
-                <SidebarStep
-                  num="02"
-                  icon={<FileCheck2 className="h-4 w-4 text-primary" />}
-                  title="Generate a standardized bilty"
-                  desc="A clean LR built from your documents, with conflicts resolved and missing fields surfaced."
-                />
-                <SidebarStep
-                  num="03"
-                  icon={<ShieldAlert className="h-4 w-4 text-destructive" />}
-                  title="Cross-verify and flag risks"
-                  desc="40+ checks run across documents. You see weight mismatches, missing invoice details, and suspicious entries — before dispatch."
-                />
+                {cfg.steps.map((s) => (
+                  <SidebarStep key={s.num} num={s.num} icon={s.icon} title={s.title} desc={s.desc} />
+                ))}
               </aside>
             </div>
           </div>
