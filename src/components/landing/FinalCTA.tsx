@@ -18,7 +18,7 @@ export function FinalCTA() {
             size="lg"
             className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-6 font-medium w-full sm:w-auto"
           >
-            <Link to="/app">
+            <Link to="/auth">
               Open the tool
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>

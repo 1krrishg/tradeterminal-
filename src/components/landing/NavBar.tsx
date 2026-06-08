@@ -34,7 +34,7 @@ export function NavBar() {
         </nav>
 
         <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground flex-shrink-0">
-          <Link to="/app">Try it</Link>
+          <Link to="/auth">Try it</Link>
         </Button>
       </div>
     </header>

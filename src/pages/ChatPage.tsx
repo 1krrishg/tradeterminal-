@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Send, Plus, MessageSquare, LogOut, Paperclip,
   FileCheck2, ShieldAlert, AlertTriangle, X, Menu,
-  CheckCircle2, XCircle, Wrench, Mic, MicOff, Loader2,
+  CheckCircle2, XCircle, Wrench, Mic, MicOff, Loader2, Truck, Package,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -778,23 +778,41 @@ export default function ChatPage() {
       <main className="flex flex-col flex-1 min-w-0 h-full">
         {!conversationId ? (
           <div className="flex flex-1 items-center justify-center p-6">
-            <div className="flex flex-col items-center gap-4 text-center max-w-sm">
-              <MessageSquare className="h-12 w-12 text-muted-foreground opacity-30" />
-              <div>
-                <p className="text-lg font-semibold">Trade Operations Workspace</p>
-                <p className="text-sm text-muted-foreground mt-1">Upload documents, validate codes, check regulations.</p>
+            <div className="flex flex-col items-center gap-6 max-w-lg w-full">
+              <div className="text-center">
+                <p className="text-xl font-semibold">What do you need to do?</p>
+                <p className="text-sm text-muted-foreground mt-1">Pick your role — the workspace adjusts.</p>
               </div>
-              <div className="flex flex-wrap gap-2 justify-center mt-2">
-                {["Upload shipment docs", "Validate a GSTIN", "Check HSN code"].map(prompt => (
+
+              {/* Mode cards */}
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <button
+                  onClick={() => handleNewConversation("I am a transporter. I need to upload shipment documents and generate a bilty / Lorry Receipt.")}
+                  className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5"
+                >
+                  <Truck className="h-6 w-6 text-primary mb-3" />
+                  <div className="font-semibold text-sm text-foreground mb-1">Make a Bilty</div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Upload invoice, packing list, LC, e-way bill → get a clean LR with risk checks.</p>
+                </button>
+                <button
+                  onClick={() => handleNewConversation("I am an exporter. I need to check if my shipment documents are correct and compliant for cross-border trade.")}
+                  className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5"
+                >
+                  <Package className="h-6 w-6 text-primary mb-3" />
+                  <div className="font-semibold text-sm text-foreground mb-1">Check Documents</div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Verify compliance, catch mismatches, check corridor rules before dispatch.</p>
+                </button>
+              </div>
+
+              {/* Quick actions */}
+              <div className="flex flex-wrap gap-2 justify-center">
+                {["Validate a GSTIN", "Check HSN code", "Nepal corridor rules", "Ask anything"].map(prompt => (
                   <button key={prompt} onClick={() => handleNewConversation(prompt)}
-                    className="rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                    className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
                     {prompt}
                   </button>
                 ))}
               </div>
-              <Button onClick={() => handleNewConversation()} className="mt-2">
-                <Plus className="h-4 w-4 mr-2" />New conversation
-              </Button>
             </div>
           </div>
         ) : (

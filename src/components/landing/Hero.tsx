@@ -29,7 +29,7 @@ export function Hero() {
                 size="lg"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-5 font-medium w-full sm:w-auto"
               >
-                <Link to="/app">
+                <Link to="/auth">
                   Try it on your shipment
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Link>
