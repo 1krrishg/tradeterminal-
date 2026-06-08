@@ -213,7 +213,7 @@ export default function AppPage() {
 
               {/* Exporter card */}
               <button
-                onClick={() => setMode("exporter")}
+                onClick={() => navigate("/chat")}
                 className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-[var(--shadow-elevated)] transition-all p-6"
               >
                 <div className="h-10 w-10 rounded-lg bg-secondary border border-border flex items-center justify-center mb-4 group-hover:bg-primary/10 group-hover:border-primary/30 transition-colors">

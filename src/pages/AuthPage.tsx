@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { NavBar } from "@/components/landing/NavBar";
 
 const AuthPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as any)?.from || "/chat";
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +29,7 @@ const AuthPage: React.FC = () => {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
       }
-      navigate("/chat");
+      navigate(from);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
     } finally {
@@ -108,7 +110,7 @@ const AuthPage: React.FC = () => {
                     const DEV_PASS = "devpassword123";
                     const { error } = await supabase.auth.signInWithPassword({ email: DEV_EMAIL, password: DEV_PASS });
                     if (error) throw new Error("Dev account not set up yet. See instructions below.");
-                    navigate("/chat");
+                    navigate(from);
                   } catch (err: any) {
                     setError(err.message || "Dev login failed.");
                   } finally {

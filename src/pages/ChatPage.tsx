@@ -324,7 +324,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { navigate("/auth"); return; }
+      if (!session) { navigate("/auth", { state: { from: "/chat" } }); return; }
       setUserId(session.user.id);
       fetchConversations(session.user.id);
     });
