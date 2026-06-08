@@ -273,21 +273,34 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const startRecording = useCallback(async () => {
+  const toggleRecording = useCallback(async () => {
+    // If already recording — stop and transcribe
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    // Start recording
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
       const recorder = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
+
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
+
+        // Don't transcribe if audio is too short (< 0.5s = likely accidental tap)
+        if (blob.size < 3000) return;
+
         setIsTranscribing(true);
         try {
           const formData = new FormData();
           formData.append("audio", blob, mimeType === "audio/webm" ? "audio.webm" : "audio.mp4");
-          // Proxy through Supabase function so Groq key stays server-side
           const { data, error } = await supabase.functions.invoke("transcribe", { body: formData });
           if (error || data?.error) {
             toast({ title: "Voice failed", description: data?.error ?? error?.message ?? "Try again.", variant: "destructive" });
@@ -301,18 +314,14 @@ export default function ChatPage() {
           setIsTranscribing(false);
         }
       };
+
       mediaRecorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
     } catch {
       toast({ title: "Microphone blocked", description: "Allow mic access in your browser settings.", variant: "destructive" });
     }
-  }, [toast]);
-
-  const stopRecording = useCallback(() => {
-    mediaRecorderRef.current?.stop();
-    setIsRecording(false);
-  }, []);
+  }, [isRecording, toast]);
   const [regulationMatches, setRegulationMatches] = useState<RegulationMatch[]>([]);
   const [pendingPatch, setPendingPatch] = useState<PendingPatch | null>(null);
 
@@ -395,7 +404,7 @@ export default function ChatPage() {
       ? "Ready to generate your bilty. Upload your **invoice** (required) and any of these: packing list, e-way bill, LC.\n\nAttach the files using the 📎 button and I'll extract everything and flag any issues."
       : "Ready to check your documents. Upload your **invoice** plus any of: packing list, e-way bill, LC.\n\nI'll verify every field, catch cross-document mismatches, and flag corridor-specific compliance issues before you dispatch.";
 
-    await supabase.from("messages").insert({ conversation_id: data.id, role: "assistant", content: welcome, user_id: userId });
+    await supabase.from("messages").insert({ conversation_id: data.id, role: "assistant", content: welcome });
     navigate(`/chat/${data.id}`);
   };
 
@@ -893,16 +902,13 @@ export default function ChatPage() {
                   onClick={() => fileInputRef.current?.click()} disabled={isBusy}>
                   <Paperclip className="h-4 w-4" />
                 </Button>
-                {/* Mic button — hold to record, release to transcribe */}
+                {/* Mic button — click to start, click again to stop */}
                 <Button
                   variant="ghost" size="icon"
-                  className={`shrink-0 mb-0.5 transition-colors ${isRecording ? "text-destructive animate-pulse" : "text-muted-foreground hover:text-foreground"}`}
-                  onMouseDown={startRecording}
-                  onMouseUp={stopRecording}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
+                  className={`shrink-0 mb-0.5 transition-colors ${isRecording ? "text-destructive bg-destructive/10 animate-pulse" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={toggleRecording}
                   disabled={isBusy || isTranscribing}
-                  title="Hold to speak (Hindi / Nepali / English)"
+                  title={isRecording ? "Click to stop recording" : "Click to speak (Hindi / Nepali / English)"}
                 >
                   {isTranscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>
