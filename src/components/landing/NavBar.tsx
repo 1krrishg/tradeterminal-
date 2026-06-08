@@ -9,6 +9,7 @@ const linkActive = "text-foreground";
 export function NavBar() {
   const { pathname } = useLocation();
   const onChat = pathname.startsWith("/chat");
+  const onApp = pathname.startsWith("/app") || pathname.startsWith("/bilty");
 
   return (
     <header className="sticky top-0 z-50 bg-background/85 backdrop-blur-md border-b border-border">
@@ -18,7 +19,7 @@ export function NavBar() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-7 text-sm">
-          {!onChat && (
+          {!onChat && !onApp && (
             <>
               <a href="#demo" className={`${linkBase} ${linkInactive}`}>How it works</a>
               <a href="#risks" className={`${linkBase} ${linkInactive}`}>What we flag</a>
@@ -33,7 +34,7 @@ export function NavBar() {
         </nav>
 
         <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground flex-shrink-0">
-          <Link to="/chat">Try it</Link>
+          <Link to="/app">Try it</Link>
         </Button>
       </div>
     </header>

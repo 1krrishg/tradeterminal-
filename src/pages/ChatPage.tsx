@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Send, Plus, MessageSquare, LogOut, Paperclip,
   FileCheck2, ShieldAlert, AlertTriangle, X, Menu,
-  CheckCircle2, XCircle, Wrench,
+  CheckCircle2, XCircle, Wrench, Mic, MicOff, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -266,6 +266,53 @@ export default function ChatPage() {
   const [latestExtracted, setLatestExtracted] = useState<LorryReceiptData | null>(null);
   const [lastExtractedData, setLastExtractedData] = useState<Record<string, any> | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // ── Voice input ──────────────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        setIsTranscribing(true);
+        try {
+          const formData = new FormData();
+          formData.append("audio", blob, mimeType === "audio/webm" ? "audio.webm" : "audio.mp4");
+          // Proxy through Supabase function so Groq key stays server-side
+          const { data, error } = await supabase.functions.invoke("transcribe", { body: formData });
+          if (error || data?.error) {
+            toast({ title: "Voice failed", description: data?.error ?? error?.message ?? "Try again.", variant: "destructive" });
+          } else {
+            const transcript: string = data?.text?.trim() ?? "";
+            if (transcript) setInputText(prev => prev ? `${prev} ${transcript}` : transcript);
+          }
+        } catch {
+          toast({ title: "Voice error", description: "Transcription failed.", variant: "destructive" });
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      toast({ title: "Microphone blocked", description: "Allow mic access in your browser settings.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  }, []);
   const [regulationMatches, setRegulationMatches] = useState<RegulationMatch[]>([]);
   const [pendingPatch, setPendingPatch] = useState<PendingPatch | null>(null);
 
@@ -812,8 +859,21 @@ export default function ChatPage() {
                   onClick={() => fileInputRef.current?.click()} disabled={isBusy}>
                   <Paperclip className="h-4 w-4" />
                 </Button>
+                {/* Mic button — hold to record, release to transcribe */}
+                <Button
+                  variant="ghost" size="icon"
+                  className={`shrink-0 mb-0.5 transition-colors ${isRecording ? "text-destructive animate-pulse" : "text-muted-foreground hover:text-foreground"}`}
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                  onTouchStart={startRecording}
+                  onTouchEnd={stopRecording}
+                  disabled={isBusy || isTranscribing}
+                  title="Hold to speak (Hindi / Nepali / English)"
+                >
+                  {isTranscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
                 <Textarea ref={textareaRef} value={inputText} onChange={handleTextareaChange} onKeyDown={handleKeyDown}
-                  placeholder={attachedFiles.length > 0 ? "Add a note or just press Send to extract…" : "Ask anything about your shipment…"}
+                  placeholder={attachedFiles.length > 0 ? "Add a note or just press Send to extract…" : "Ask anything, or hold 🎤 to speak (Hindi / Nepali / English)…"}
                   className="flex-1 resize-none min-h-[40px] max-h-[96px] py-2 text-sm" rows={1} disabled={isBusy} />
                 <Button size="icon" onClick={handleSend} disabled={isBusy || (!inputText.trim() && attachedFiles.length === 0)} className="shrink-0 mb-0.5">
                   <Send className="h-4 w-4" />
