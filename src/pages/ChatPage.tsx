@@ -55,6 +55,18 @@ function detectHSN(text: string): string | null {
 
 // ─── Card components ────────────────────────────────────────────────────────
 
+function formatINR(val: unknown): string {
+  const num = parseFloat(String(val ?? "").replace(/[^0-9.]/g, ""));
+  if (isNaN(num)) return String(val ?? "—");
+  return "₹" + num.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function formatKg(val: unknown): string {
+  const num = parseFloat(String(val ?? "").replace(/[^0-9.]/g, ""));
+  if (isNaN(num)) return String(val ?? "—");
+  return num.toLocaleString("en-IN") + " kg";
+}
+
 function ExtractionCard({ data, extractedData }: { data: Record<string, unknown>; extractedData?: LorryReceiptData | null }) {
   const navigate = useNavigate();
   return (
@@ -65,16 +77,16 @@ function ExtractionCard({ data, extractedData }: { data: Record<string, unknown>
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-3">
         {[
-          ["Consignor", data.consignor_name],
-          ["Invoice No.", data.invoice_number],
-          ["Gross Weight", data.total_gross_weight],
-          ["Total Value", data.total_value],
-          ["Line Items", data.line_items_count],
-          ["Confidence", data.confidence !== undefined ? `${data.confidence}%` : undefined],
+          ["Consignor", String(data.consignor_name ?? "—")],
+          ["Invoice No.", String(data.invoice_number ?? "—")],
+          ["Gross Weight", formatKg(data.total_gross_weight)],
+          ["Total Value", formatINR(data.total_value)],
+          ["Line Items", String(data.line_items_count ?? "—")],
+          ["Confidence", data.confidence !== undefined ? `${data.confidence}%` : "—"],
         ].map(([label, val]) => (
           <div key={String(label)}>
             <div className="text-muted-foreground">{label}</div>
-            <div className="font-medium truncate">{String(val ?? "—")}</div>
+            <div className="font-medium truncate">{val}</div>
           </div>
         ))}
       </div>
@@ -267,6 +279,17 @@ export default function ChatPage() {
   const [lastExtractedData, setLastExtractedData] = useState<Record<string, any> | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // ── Saved user mode — persists in localStorage ───────────────────────────
+  const [userMode, setUserMode] = useState<"transporter" | "exporter" | null>(() => {
+    const saved = localStorage.getItem("ability_user_mode");
+    return (saved === "transporter" || saved === "exporter") ? saved : null;
+  });
+
+  const saveMode = (mode: "transporter" | "exporter") => {
+    localStorage.setItem("ability_user_mode", mode);
+    setUserMode(mode);
+  };
+
   // ── Voice input ──────────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -385,6 +408,8 @@ export default function ChatPage() {
 
   const handleNewConversation = async (prefill?: string) => {
     if (!userId) return;
+    // If user has a saved mode and no custom prefill, start with that mode's welcome
+    if (userMode && !prefill) { await startConversationWithMode(userMode); return; }
     const { data, error } = await supabase.from("conversations").insert({ title: "New Shipment", user_id: userId }).select().single();
     if (error) { toast({ title: "Error", description: "Failed to create conversation.", variant: "destructive" }); return; }
     setConversations(prev => [data, ...prev]);
@@ -394,15 +419,20 @@ export default function ChatPage() {
 
   const handleModeSelect = async (mode: "transporter" | "exporter") => {
     if (!userId) return;
+    saveMode(mode); // remember forever
+    await startConversationWithMode(mode);
+  };
+
+  const startConversationWithMode = async (mode: "transporter" | "exporter") => {
+    if (!userId) return;
     const title = mode === "transporter" ? "New Bilty" : "Document Check";
     const { data, error } = await supabase.from("conversations").insert({ title, user_id: userId }).select().single();
     if (error) { toast({ title: "Error", description: "Failed to create conversation.", variant: "destructive" }); return; }
     setConversations(prev => [data, ...prev]);
 
-    // Insert a hardcoded welcome — no AI call, no hallucination
     const welcome = mode === "transporter"
-      ? "Ready to generate your bilty. Upload your **invoice** (required) and any of these: packing list, e-way bill, LC.\n\nAttach the files using the 📎 button and I'll extract everything and flag any issues."
-      : "Ready to check your documents. Upload your **invoice** plus any of: packing list, e-way bill, LC.\n\nI'll verify every field, catch cross-document mismatches, and flag corridor-specific compliance issues before you dispatch.";
+      ? "Ready to generate your bilty. Attach your **invoice** (required) + packing list, e-way bill, or LC using the 📎 button."
+      : "Ready to check your documents. Attach your **invoice** + packing list, e-way bill, or LC using the 📎 button. I'll flag every mismatch.";
 
     await supabase.from("messages").insert({ conversation_id: data.id, role: "assistant", content: welcome });
     navigate(`/chat/${data.id}`);
@@ -751,10 +781,23 @@ export default function ChatPage() {
           <LogOut className="h-4 w-4" />
         </Button>
       </div>
-      <div className="px-3 py-3">
+      <div className="px-3 py-3 space-y-2">
         <Button variant="outline" className="w-full justify-start gap-2 h-9 text-sm" onClick={() => { handleNewConversation(); setMobileSidebarOpen(false); }}>
-          <Plus className="h-4 w-4" />New conversation
+          <Plus className="h-4 w-4" />
+          {userMode === "transporter" ? "New Bilty" : userMode === "exporter" ? "New Document Check" : "New conversation"}
         </Button>
+        {userMode && (
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              {userMode === "transporter" ? <Truck className="h-3 w-3" /> : <Package className="h-3 w-3" />}
+              {userMode === "transporter" ? "Transporter" : "Exporter"}
+            </span>
+            <button onClick={() => { localStorage.removeItem("ability_user_mode"); setUserMode(null); }}
+              className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2">
+              Switch
+            </button>
+          </div>
+        )}
       </div>
       <ScrollArea className="flex-1 px-2">
         <div className="flex flex-col gap-0.5 pb-4">
@@ -803,42 +846,47 @@ export default function ChatPage() {
       <main className="flex flex-col flex-1 min-w-0 h-full">
         {!conversationId ? (
           <div className="flex flex-1 items-center justify-center p-6">
-            <div className="flex flex-col items-center gap-6 max-w-lg w-full">
-              <div className="text-center">
-                <p className="text-xl font-semibold">What do you need to do?</p>
-                <p className="text-sm text-muted-foreground mt-1">Pick your role — the workspace adjusts.</p>
-              </div>
-
-              {/* Mode cards */}
-              <div className="grid grid-cols-2 gap-3 w-full">
-                <button
-                  onClick={() => handleModeSelect("transporter")}
-                  className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5"
-                >
-                  <Truck className="h-6 w-6 text-primary mb-3" />
-                  <div className="font-semibold text-sm text-foreground mb-1">Make a Bilty</div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Upload invoice, packing list, LC, e-way bill → get a clean LR with risk checks.</p>
-                </button>
-                <button
-                  onClick={() => handleModeSelect("exporter")}
-                  className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5"
-                >
-                  <Package className="h-6 w-6 text-primary mb-3" />
-                  <div className="font-semibold text-sm text-foreground mb-1">Check Documents</div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Verify compliance, catch mismatches, check corridor rules before dispatch.</p>
+            {userMode ? (
+              // Mode already saved — just show a start button
+              <div className="flex flex-col items-center gap-5 max-w-sm w-full text-center">
+                <div className="h-12 w-12 rounded-xl bg-secondary border border-border flex items-center justify-center">
+                  {userMode === "transporter" ? <Truck className="h-6 w-6 text-primary" /> : <Package className="h-6 w-6 text-primary" />}
+                </div>
+                <div>
+                  <p className="text-lg font-semibold">{userMode === "transporter" ? "Transporter Workspace" : "Exporter Workspace"}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{userMode === "transporter" ? "Upload docs → generate bilty + risk checks" : "Upload docs → compliance report + flag issues"}</p>
+                </div>
+                <Button onClick={() => startConversationWithMode(userMode)} className="w-full max-w-xs">
+                  <Plus className="h-4 w-4 mr-2" />New {userMode === "transporter" ? "Bilty" : "Document Check"}
+                </Button>
+                <button onClick={() => { localStorage.removeItem("ability_user_mode"); setUserMode(null); }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+                  Switch role
                 </button>
               </div>
-
-              {/* Quick actions */}
-              <div className="flex flex-wrap gap-2 justify-center">
-                {["Validate a GSTIN", "Check HSN code", "Nepal corridor rules", "Ask anything"].map(prompt => (
-                  <button key={prompt} onClick={() => handleNewConversation(prompt)}
-                    className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                    {prompt}
+            ) : (
+              // First time — pick mode, saves permanently
+              <div className="flex flex-col items-center gap-6 max-w-lg w-full">
+                <div className="text-center">
+                  <p className="text-xl font-semibold">What do you need to do?</p>
+                  <p className="text-sm text-muted-foreground mt-1">Pick once — we'll remember your role.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <button onClick={() => handleModeSelect("transporter")}
+                    className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5">
+                    <Truck className="h-6 w-6 text-primary mb-3" />
+                    <div className="font-semibold text-sm text-foreground mb-1">Make a Bilty</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Upload invoice, packing list, LC, e-way bill → clean LR with risk checks.</p>
                   </button>
-                ))}
+                  <button onClick={() => handleModeSelect("exporter")}
+                    className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5">
+                    <Package className="h-6 w-6 text-primary mb-3" />
+                    <div className="font-semibold text-sm text-foreground mb-1">Check Documents</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Catch mismatches, verify compliance, check corridor rules before dispatch.</p>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <>
@@ -913,7 +961,7 @@ export default function ChatPage() {
                   {isTranscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>
                 <Textarea ref={textareaRef} value={inputText} onChange={handleTextareaChange} onKeyDown={handleKeyDown}
-                  placeholder={attachedFiles.length > 0 ? "Add a note or just press Send to extract…" : "Ask anything, or hold 🎤 to speak (Hindi / Nepali / English)…"}
+                  placeholder={attachedFiles.length > 0 ? "Add a note or just press Send…" : "Ask anything, or tap 🎤 to speak (Hindi / Nepali / English)…"}
                   className="flex-1 resize-none min-h-[40px] max-h-[96px] py-2 text-sm" rows={1} disabled={isBusy} />
                 <Button size="icon" onClick={handleSend} disabled={isBusy || (!inputText.trim() && attachedFiles.length === 0)} className="shrink-0 mb-0.5">
                   <Send className="h-4 w-4" />
