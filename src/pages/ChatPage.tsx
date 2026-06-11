@@ -493,30 +493,58 @@ export default function ChatPage() {
 
       setMessages(prev => prev.filter(m => m.id !== "loading"));
 
-      const cardContent = "__EXTRACTION_CARD__" + JSON.stringify({
-        consignor_name: extracted.consignor_name,
-        invoice_number: extracted.invoice_number,
-        total_gross_weight: extracted.summary?.total_gross_weight || extracted.gross_weight_kg,
-        total_value: extracted.summary?.total_value || extracted.declared_value,
-        line_items_count: extracted.line_items?.length ?? 0,
-        confidence,
-      });
-      const extractionMsg = await insertMessage(convId, "assistant", cardContent);
-      if (extractionMsg) setMessages(prev => [...prev, extractionMsg]);
+      const currentMode = localStorage.getItem("ability_user_mode") ?? "transporter";
 
       // Auto-run risk engine with reconciliation
       const hasLCDocs = files.some(f => f.name.toLowerCase().includes("lc") || f.name.toLowerCase().includes("letter"));
       const reconciliation = reconcileDocuments(extracted, hasLCDocs);
       const risk = runRedFlagEngine(extracted as Parameters<typeof runRedFlagEngine>[0], reconciliation, confidence);
-      const riskContent = "__RISK_CARD__" + JSON.stringify({
-        score: risk.score,
-        category: risk.category,
-        triggered_count: risk.triggeredSignals.length,
-        top_flags: risk.triggeredSignals.slice(0, 3).map((s) => s.detail),
-        needs_review: risk.needsReview,
-      });
-      const riskMsg = await insertMessage(convId, "assistant", riskContent);
-      if (riskMsg) setMessages(prev => [...prev, riskMsg]);
+
+      if (currentMode === "exporter") {
+        // Exporter gets a compliance report — no bilty, no "View full bilty" button
+        const issues = risk.triggeredSignals.map(s => s.detail);
+        const complianceLines: string[] = [];
+
+        complianceLines.push(`**Documents analyzed** — ${files.map(f => f.name).join(", ")}`);
+        complianceLines.push(`**Consignor:** ${extracted.consignor_name || "Not found"}`);
+        complianceLines.push(`**Invoice:** ${extracted.invoice_number || "Not found"} · Value: ${extracted.summary?.total_value || extracted.declared_value || "—"} · Weight: ${extracted.summary?.total_gross_weight || extracted.gross_weight_kg || "—"} kg`);
+        complianceLines.push("");
+
+        if (issues.length === 0) {
+          complianceLines.push("✅ **No issues found.** Documents look consistent. Ready for dispatch.");
+        } else {
+          complianceLines.push(`⚠️ **${issues.length} issue${issues.length > 1 ? "s" : ""} found — fix before dispatch:**`);
+          issues.forEach((issue, i) => complianceLines.push(`${i + 1}. ${issue}`));
+        }
+
+        complianceLines.push("");
+        complianceLines.push("Ask me anything about these documents or type what you want to fix.");
+
+        const complianceMsg = await insertMessage(convId, "assistant", complianceLines.join("\n"));
+        if (complianceMsg) setMessages(prev => [...prev, complianceMsg]);
+      } else {
+        // Transporter gets the extraction card + bilty button
+        const cardContent = "__EXTRACTION_CARD__" + JSON.stringify({
+          consignor_name: extracted.consignor_name,
+          invoice_number: extracted.invoice_number,
+          total_gross_weight: extracted.summary?.total_gross_weight || extracted.gross_weight_kg,
+          total_value: extracted.summary?.total_value || extracted.declared_value,
+          line_items_count: extracted.line_items?.length ?? 0,
+          confidence,
+        });
+        const extractionMsg = await insertMessage(convId, "assistant", cardContent);
+        if (extractionMsg) setMessages(prev => [...prev, extractionMsg]);
+
+        const riskContent = "__RISK_CARD__" + JSON.stringify({
+          score: risk.score,
+          category: risk.category,
+          triggered_count: risk.triggeredSignals.length,
+          top_flags: risk.triggeredSignals.slice(0, 3).map((s) => s.detail),
+          needs_review: risk.needsReview,
+        });
+        const riskMsg = await insertMessage(convId, "assistant", riskContent);
+        if (riskMsg) setMessages(prev => [...prev, riskMsg]);
+      }
 
       // PHASE 4: Save shipment
       try {
@@ -790,7 +818,7 @@ export default function ChatPage() {
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               {userMode === "transporter" ? <Truck className="h-3 w-3" /> : <Package className="h-3 w-3" />}
-              {userMode === "transporter" ? "Transporter" : "Exporter"}
+              {userMode === "transporter" ? "Transporter / Logistics" : "Exporter / Importer"}
             </span>
             <button onClick={() => { localStorage.removeItem("ability_user_mode"); setUserMode(null); }}
               className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2">
@@ -853,8 +881,8 @@ export default function ChatPage() {
                   {userMode === "transporter" ? <Truck className="h-6 w-6 text-primary" /> : <Package className="h-6 w-6 text-primary" />}
                 </div>
                 <div>
-                  <p className="text-lg font-semibold">{userMode === "transporter" ? "Transporter Workspace" : "Exporter Workspace"}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{userMode === "transporter" ? "Upload docs → generate bilty + risk checks" : "Upload docs → compliance report + flag issues"}</p>
+                  <p className="text-lg font-semibold">{userMode === "transporter" ? "Transporter / Logistics" : "Exporter / Importer"}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{userMode === "transporter" ? "Upload docs → generate bilty + risk checks" : "Upload docs → compliance report, what to fix before dispatch"}</p>
                 </div>
                 <Button onClick={() => startConversationWithMode(userMode)} className="w-full max-w-xs">
                   <Plus className="h-4 w-4 mr-2" />New {userMode === "transporter" ? "Bilty" : "Document Check"}
@@ -875,14 +903,14 @@ export default function ChatPage() {
                   <button onClick={() => handleModeSelect("transporter")}
                     className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5">
                     <Truck className="h-6 w-6 text-primary mb-3" />
-                    <div className="font-semibold text-sm text-foreground mb-1">Make a Bilty</div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">Upload invoice, packing list, LC, e-way bill → clean LR with risk checks.</p>
+                    <div className="font-semibold text-sm text-foreground mb-1">Transporter / Logistics</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">I need to make a bilty / LR for a shipment.</p>
                   </button>
                   <button onClick={() => handleModeSelect("exporter")}
                     className="group text-left rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all p-5">
                     <Package className="h-6 w-6 text-primary mb-3" />
-                    <div className="font-semibold text-sm text-foreground mb-1">Check Documents</div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">Catch mismatches, verify compliance, check corridor rules before dispatch.</p>
+                    <div className="font-semibold text-sm text-foreground mb-1">Exporter / Importer</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">I need to check if my shipment documents are correct before dispatch.</p>
                   </button>
                 </div>
               </div>
