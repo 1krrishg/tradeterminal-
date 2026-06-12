@@ -10,8 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const SOURCES = [
-  "https://ustr.gov/issue-areas/enforcement/section-301-investigations/tariff-actions",
-  "https://ustr.gov/about-us/policy-offices/press-office/fact-sheets",
+  "https://en.wikipedia.org/wiki/China%E2%80%93United_States_trade_war",
+  "https://en.wikipedia.org/wiki/Trump_tariffs",
 ];
 
 async function scrapeUrl(url: string): Promise<string> {
