@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker 30s linear infinite;
+}
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
 /* ==========================================================================
    Design System — Shipment risk check
    Calm, minimal, structured. Stripe / Linear / Notion inspired.
