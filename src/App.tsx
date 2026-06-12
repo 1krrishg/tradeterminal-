@@ -10,6 +10,7 @@ import ReportPage from "./pages/ReportPage";
 import NotFound from "./pages/NotFound";
 import AuthPage from "@/pages/AuthPage";
 import ChatPage from "@/pages/ChatPage";
+import RegulationsPage from "@/pages/RegulationsPage";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/chat/:conversationId" element={<ChatPage />} />
+          <Route path="/regulations" element={<RegulationsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -6,6 +6,7 @@ import { Quote } from "@/components/landing/Quote";
 import { ImpactCounter } from "@/components/landing/ImpactCounter";
 import { FinalCTA } from "@/components/landing/FinalCTA";
 import { Footer } from "@/components/landing/Footer";
+import { RegulationPreview } from "@/components/landing/RegulationPreview";
 
 export default function Index() {
   return (
@@ -17,6 +18,7 @@ export default function Index() {
         <RiskGallery />
         <Quote />
         <ImpactCounter />
+        <RegulationPreview />
         <FinalCTA />
       </main>
       <Footer />

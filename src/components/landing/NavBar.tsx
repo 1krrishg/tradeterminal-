@@ -26,6 +26,12 @@ export function NavBar() {
             </>
           )}
           <NavLink
+            to="/regulations"
+            className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+          >
+            Regulations
+          </NavLink>
+          <NavLink
             to="/chat"
             className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
           >
