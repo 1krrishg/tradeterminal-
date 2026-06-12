@@ -1,8 +1,12 @@
 import { useLocation, Link } from "react-router-dom";
-import { ArrowLeft, TrendingDown, CheckCircle2, AlertTriangle, Lightbulb, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, TrendingDown, CheckCircle2, AlertTriangle, Lightbulb, RefreshCw, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { NavBar } from "@/components/landing/NavBar";
 import { Footer } from "@/components/landing/Footer";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type Scenario = {
   name: string;
@@ -39,7 +43,36 @@ function pct(n: number) {
 
 export default function ResultsPage() {
   const { state } = useLocation();
+  const { toast } = useToast();
   const result: SimResult | undefined = state?.result;
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSendAlert = async () => {
+    if (!email || !result) return;
+    setSending(true);
+    try {
+      await supabase.functions.invoke("send-alert", {
+        body: {
+          recipient_email: email,
+          product_name: result.product_name,
+          destination_country: result.destination_country,
+          shipment_value: result.shipment_value,
+          effective_rate: result.effective_rate,
+          tariff_cost: result.tariff_cost_today,
+          recommendation: result.recommendation,
+          risk_summary: result.risk_summary,
+        },
+      });
+      setSent(true);
+      toast({ title: "Report sent", description: `Simulation emailed to ${email}` });
+    } catch {
+      toast({ title: "Failed to send", description: "Try again in a moment.", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (!result) {
     return (
@@ -149,6 +182,33 @@ export default function ResultsPage() {
             <div className="text-xs uppercase tracking-wider text-primary font-medium">Recommendation</div>
           </div>
           <p className="text-sm text-foreground leading-relaxed">{result.recommendation}</p>
+        </div>
+
+        {/* Email alert — powered by Composio */}
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Mail className="h-4 w-4 text-primary" />
+            <div className="text-sm font-medium text-foreground">Email this report</div>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">Get this simulation sent to your inbox via Composio.</p>
+          {sent ? (
+            <div className="flex items-center gap-2 text-sm text-success">
+              <CheckCircle2 className="h-4 w-4" /> Report sent successfully
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
+                type="email"
+              />
+              <Button onClick={handleSendAlert} disabled={sending || !email} className="bg-primary hover:bg-primary/90 text-primary-foreground flex-shrink-0">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {result.data_source && (
