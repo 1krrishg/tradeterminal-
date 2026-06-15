@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingDown, CheckCircle2, AlertTriangle, Radio } from "lucide-react";
+import { TrendingDown, CheckCircle2, AlertTriangle, Radio, RefreshCw, AlertCircle } from "lucide-react";
 
 type TariffEntry = {
   hs_code: string;
@@ -34,11 +34,18 @@ function severityFor(rate: number) {
   return "none";
 }
 
+function isStale(iso: string | undefined, thresholdHours = 2) {
+  if (!iso) return true;
+  return (Date.now() - new Date(iso).getTime()) > thresholdHours * 3600 * 1000;
+}
+
 export function LiveFeed() {
   const [tariffs, setTariffs] = useState<TariffEntry[]>([]);
   const [scrapes, setScrapes] = useState<ScrapeEntry[]>([]);
   const [lastPing, setLastPing] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
   async function load() {
     const [{ data: t }, { data: s }] = await Promise.all([
@@ -60,6 +67,24 @@ export function LiveFeed() {
     setLoading(false);
   }
 
+  async function triggerScrape() {
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-tariffs");
+      if (error) throw error;
+      const upserted = data?.total_upserted ?? 0;
+      setRefreshMsg(upserted > 0 ? `Updated ${upserted} tariff rates from live sources.` : "Scrape complete — no new rates found.");
+      await load();
+    } catch {
+      setRefreshMsg("Scrape failed — check edge function logs.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const dataStale = scrapes.length === 0 || isStale(scrapes[0]?.scraped_at);
+
   useEffect(() => {
     load();
     const interval = setInterval(load, 30000);
@@ -70,19 +95,40 @@ export function LiveFeed() {
     <section className="py-16 sm:py-20 border-b border-border bg-background">
       <div className="container mx-auto px-5 sm:px-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <div className="text-xs font-medium uppercase tracking-wider text-primary mb-2">Live tariff intelligence</div>
             <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
               What US exporters are facing right now
             </h2>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-muted/30 text-xs text-muted-foreground">
-            <Radio className="h-3 w-3 text-success animate-pulse" />
-            Live · refreshes every 30s
-            {lastPing && <span className="font-mono">· {timeAgo(lastPing)}</span>}
+          <div className="flex items-center gap-2 flex-wrap">
+            {dataStale && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-warning/50 bg-warning-soft text-xs text-warning font-medium">
+                <AlertCircle className="h-3 w-3" />
+                Data may be stale
+              </div>
+            )}
+            <button
+              onClick={triggerScrape}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-xs text-primary font-medium hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing…" : "Refresh now"}
+            </button>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-muted/30 text-xs text-muted-foreground">
+              <Radio className="h-3 w-3 text-success animate-pulse" />
+              Auto-refresh 30s
+            </div>
           </div>
         </div>
+
+        {refreshMsg && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+            {refreshMsg}
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Tariff alerts feed */}
@@ -158,7 +204,7 @@ export function LiveFeed() {
                 )}
               </div>
               <div className="px-4 py-2.5 bg-muted/20 border-t border-border">
-                <div className="text-[10px] text-muted-foreground">Syncs every hour from USTR.gov</div>
+                <div className="text-[10px] text-muted-foreground">Sources: Wikipedia trade war articles + Groq extraction</div>
               </div>
             </div>
 

@@ -1,0 +1,20 @@
+name: Hourly tariff scrape
+
+on:
+  schedule:
+    # Every hour at :05 — gives Supabase time to wake up before pg_cron fires
+    - cron: "5 * * * *"
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scrape-tariffs edge function
+        run: |
+          curl -sS -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/scrape-tariffs" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            --max-time 60 \
+            | jq '{ success: .success, total_upserted: .total_upserted, sources_checked: .sources_checked }'
