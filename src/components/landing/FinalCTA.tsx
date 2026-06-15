@@ -6,18 +6,32 @@ export function FinalCTA() {
   return (
     <section className="py-20 sm:py-28">
       <div className="container mx-auto px-5 sm:px-6 text-center">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-secondary border border-border text-xs text-muted-foreground mb-6">
+          <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+          Free · No account required · Results in 30 seconds
+        </div>
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-5">
-          Ready to simulate your shipment?
+          Your next shipment is at risk.<br className="hidden sm:block" /> Find out before you commit.
         </h2>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-8">
-          Upload a trade document or enter your shipment details. Get your tariff exposure and a recommendation in 30 seconds — free.
+          Search any of 12,788 products. Upload your invoice. Get a risk score, 29-year rate trend, dollar impact, and one clear recommendation.
         </p>
-        <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 text-base font-medium">
-          <Link to="/simulate">
-            Simulate now
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 text-base font-medium">
+            <Link to="/simulate">
+              Simulate now — free
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base">
+            <a href="https://github.com/1krrishg/tariff-lens" target="_blank" rel="noopener noreferrer">
+              View on GitHub
+            </a>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-6">
+          Built on USITC official data · Live scraping via Supabase + Groq · Top 6 at AWS Harness Hackathon SF
+        </p>
       </div>
     </section>
   );

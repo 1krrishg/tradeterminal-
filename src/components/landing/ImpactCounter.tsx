@@ -1,8 +1,8 @@
 const stats = [
-  { value: "$180B+", label: "US exports hit by retaliatory tariffs in 2024" },
-  { value: "38%", label: "Average effective tariff rate on US ag goods to China" },
-  { value: "47", label: "Countries with active retaliatory measures on US goods" },
-  { value: "30s", label: "Time to simulate your shipment with TariffLens" },
+  { value: "12,788", label: "HS codes with 29 years of rate history in our database" },
+  { value: "262k", label: "Data points across 1998–2026 USITC tariff records" },
+  { value: "$180B+", label: "US export value hit by active retaliatory tariffs in 2024" },
+  { value: "30s", label: "From shipment details to full risk simulation with prediction" },
 ];
 
 export function ImpactCounter() {

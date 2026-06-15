@@ -1,4 +1,4 @@
-import { ArrowRight, TrendingDown, Globe, FileSearch } from "lucide-react";
+import { ArrowRight, TrendingDown, Globe, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
@@ -10,7 +10,7 @@ export function Hero() {
           <div className="lg:col-span-5 lg:pt-6">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-secondary border border-border text-[11px] sm:text-xs text-muted-foreground mb-5">
               <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
-              Live tariff data · US exports · 20+ markets
+              Live data · 12,788 products · 29 years of history
             </div>
 
             <h1 className="text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.05] font-semibold tracking-tight text-foreground mb-5">
@@ -18,7 +18,7 @@ export function Hero() {
             </h1>
 
             <p className="text-base sm:text-lg text-muted-foreground max-w-xl mb-7 leading-relaxed">
-              Upload your invoice or trade document. TariffLens reads it, looks up retaliatory tariffs on your goods, simulates what-if scenarios, and tells you exactly what to do.
+              Upload your invoice or enter a shipment. TariffLens combines 29 years of official USITC rate history with live-scraped retaliatory tariffs to simulate dollar impact, predict rate changes, and tell you exactly where to ship instead.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -34,9 +34,9 @@ export function Hero() {
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> China · EU · Canada · Japan · Mexico</span>
-              <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Retaliatory tariffs tracked</span>
-              <span className="flex items-center gap-1.5"><FileSearch className="h-3.5 w-3.5 text-primary" /> AI reads your documents</span>
+              <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> USITC data 1998–2026</span>
+              <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Live retaliation tracking</span>
+              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> 16+ destination markets</span>
             </div>
           </div>
 
@@ -64,14 +64,28 @@ function HeroMock() {
       </div>
 
       <div className="p-4 space-y-3 text-xs">
+        {/* Risk score bar */}
+        <div className="rounded-md border border-destructive/30 bg-destructive-soft p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Risk Score</span>
+            <span className="text-[10px] font-medium text-destructive bg-destructive-soft px-1.5 py-0.5 rounded">HIGH</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full w-[78%] bg-destructive rounded-full" />
+            </div>
+            <span className="font-mono text-destructive font-bold text-sm">78/100</span>
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1">Retaliation probability: 85%</div>
+        </div>
+
         <div className="rounded-md border border-border bg-muted/30 divide-y divide-border">
           {[
-            ["Product", "Soybeans (HS 1201)", ""],
-            ["Destination", "China", ""],
-            ["Shipment value", "$500,000", ""],
-            ["MFN duty", "3%", ""],
-            ["Retaliatory tariff", "25% ← China on US ag", "warning"],
-            ["Effective rate", "28%", "destructive"],
+            ["HS Code", "1201 — Soybeans", ""],
+            ["MFN duty (USITC 2026)", "0%", ""],
+            ["Retaliatory tariff · live", "+25% ← China on US ag", "warning"],
+            ["Effective rate today", "25%", "destructive"],
+            ["Tariff cost", "-$125,000", "destructive"],
           ].map(([k, v, color]) => (
             <div key={k} className="flex justify-between gap-3 px-2.5 py-1.5">
               <span className="text-muted-foreground">{k}</span>
@@ -83,8 +97,8 @@ function HeroMock() {
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground pt-1">Scenarios</div>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: "Today", rate: "28%", impact: "-$140,000", cls: "border-destructive/30 bg-destructive-soft", neg: true },
-            { label: "Truce expires", rate: "33%", impact: "-$165,000", cls: "border-destructive/50 bg-destructive/5", neg: true },
+            { label: "Today", rate: "25%", impact: "-$125,000", cls: "border-destructive/30 bg-destructive-soft", neg: true },
+            { label: "Escalation +40%", rate: "35%", impact: "-$175,000", cls: "border-destructive/50 bg-destructive/5", neg: true },
             { label: "Shift to Japan", rate: "0%", impact: "$0", cls: "border-success/30 bg-success-soft", neg: false },
           ].map((s) => (
             <div key={s.label} className={`rounded border p-2.5 ${s.cls}`}>
@@ -95,10 +109,17 @@ function HeroMock() {
           ))}
         </div>
 
-        <div className="rounded-md border border-primary/20 bg-primary-soft p-3">
-          <div className="text-[10px] uppercase tracking-wider text-primary mb-1.5">AI Recommendation</div>
-          <p className="text-[11px] text-foreground leading-relaxed">
-            At 28% effective tariff, this shipment loses $140k on $500k value. <strong>Shift volume to Japan</strong> — zero retaliation, same MFN baseline. If China routing is unavoidable, hedge before the Nov 10 truce deadline.
+        <div className="rounded-md border border-warning/30 bg-warning-soft p-2.5">
+          <div className="text-[10px] uppercase tracking-wider text-warning mb-1">6–12 month prediction</div>
+          <p className="text-[10px] text-foreground leading-relaxed">
+            Soybeans spiked from 0% → 25% in 2018 and have held. Pattern suggests rate holds or escalates if USTR adds Section 301 action. Shift volume to Japan now.
+          </p>
+        </div>
+
+        <div className="rounded-md border border-primary/20 bg-primary-soft p-2.5">
+          <div className="text-[10px] uppercase tracking-wider text-primary mb-1">Recommendation</div>
+          <p className="text-[10px] text-foreground leading-relaxed">
+            <strong>Reroute to Japan</strong> — 0% effective rate, saves $125,000 on this shipment. Japan has no retaliatory measure on US soybeans.
           </p>
         </div>
       </div>

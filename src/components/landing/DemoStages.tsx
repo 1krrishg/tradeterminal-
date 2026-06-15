@@ -1,4 +1,4 @@
-import { Upload, Search, BarChart3, Lightbulb, ArrowDown } from "lucide-react";
+import { Upload, Search, BarChart3, Lightbulb, TrendingUp, ArrowDown } from "lucide-react";
 
 export function DemoStages() {
   return (
@@ -7,18 +7,45 @@ export function DemoStages() {
         <div className="max-w-2xl mb-10 sm:mb-14">
           <div className="text-xs font-medium uppercase tracking-wider text-primary mb-3">How it works</div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-foreground leading-[1.1]">
-            Upload a doc. Get a decision in 30 seconds.
+            From shipment to decision in 30 seconds.
           </h2>
         </div>
 
         <div className="space-y-4 sm:space-y-5">
-          <Stage icon={<Upload className="h-4 w-4 text-primary" />} num="01" title="Upload your trade document" desc="Invoice, packing list, or any export doc. Mistral AI reads it and extracts the product, HS code, destination, and shipment value — no form filling required." />
+          <Stage
+            icon={<Upload className="h-4 w-4 text-primary" />}
+            num="01"
+            title="Upload your trade document or search any product"
+            desc="Drop an invoice, packing list, or any export doc — Mistral AI reads it and extracts product, HS code, destination, and value. Or search any of 12,788 products from the USITC catalog directly."
+          />
           <Arrow />
-          <Stage icon={<Search className="h-4 w-4 text-primary" />} num="02" title="Tariff lookup" desc="TariffLens looks up the current effective tariff rate — MFN baseline duty plus any retaliatory tariff your destination country has applied to US-origin goods." />
+          <Stage
+            icon={<Search className="h-4 w-4 text-primary" />}
+            num="02"
+            title="We pull 29 years of rate history + live retaliation data"
+            desc="TariffLens queries the official USITC database (1998–2026, 262k data points) for the MFN baseline, then cross-references live-scraped retaliatory tariffs updated hourly. You see exactly what the real rate is today."
+          />
           <Arrow />
-          <Stage icon={<BarChart3 className="h-4 w-4 text-primary" />} num="03" title="Scenario simulation" desc="See the dollar impact under 3 realistic scenarios: today's rate, an escalation scenario, and an alternative market with no retaliation." />
+          <Stage
+            icon={<BarChart3 className="h-4 w-4 text-primary" />}
+            num="03"
+            title="Simulation: dollar impact across 3 scenarios"
+            desc="Today's rate, an escalation scenario based on historical volatility, and the best alternative market ranked by effective rate. Every number is quantified — no vague percentages, just exact dollar impact on your shipment."
+          />
           <Arrow />
-          <Stage icon={<Lightbulb className="h-4 w-4 text-primary" />} num="04" title="AI recommendation" desc="Groq-powered analysis gives you a plain-English risk summary and one specific action — reroute, hedge, accelerate shipment, or stay the course." />
+          <Stage
+            icon={<TrendingUp className="h-4 w-4 text-primary" />}
+            num="04"
+            title="Risk score + 6–12 month rate prediction"
+            desc="A 0–100 risk score driven by current exposure, historical volatility, and retaliation probability. Then a Groq-powered prediction: based on the rate pattern since 1998, what is likely to happen in the next 6–12 months — with specific years cited as precedent."
+          />
+          <Arrow />
+          <Stage
+            icon={<Lightbulb className="h-4 w-4 text-primary" />}
+            num="05"
+            title="One specific recommendation with dollar savings"
+            desc="Reroute, hedge, accelerate, or stay the course — the AI picks one action and quantifies it. Not a paragraph of caveats. One sentence, one number."
+          />
         </div>
       </div>
     </section>
