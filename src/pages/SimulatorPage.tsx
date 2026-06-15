@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, X, Loader2, ArrowRight, Globe, Package, DollarSign } from "lucide-react";
+import { Upload, FileText, X, Loader2, ArrowRight, Globe, Package, DollarSign, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,15 @@ import { NavBar } from "@/components/landing/NavBar";
 import { Footer } from "@/components/landing/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { DESTINATION_COUNTRIES, PRODUCTS } from "@/lib/tariff-data";
+
+const DESTINATION_COUNTRIES = [
+  "China", "European Union", "Canada", "Mexico", "Japan", "India",
+  "South Korea", "United Kingdom", "Australia", "Brazil", "Singapore",
+  "Turkey", "Vietnam", "Indonesia", "Thailand", "Malaysia",
+];
 
 type Mode = "document" | "manual";
+type HtsResult = { hts8: string; description: string; mfn_rate: number };
 
 export default function SimulatorPage() {
   const { toast } = useToast();
@@ -21,11 +27,78 @@ export default function SimulatorPage() {
   const [extracting, setExtracting] = useState(false);
   const [simulating, setSimulating] = useState(false);
 
-  // Manual / extracted form fields
   const [hsCode, setHsCode] = useState("");
   const [productName, setProductName] = useState("");
   const [destination, setDestination] = useState("");
   const [shipmentValue, setShipmentValue] = useState("");
+
+  // Product search state
+  const [productQuery, setProductQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<HtsResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const searchProducts = useCallback(async (q: string) => {
+    if (q.length < 2) { setSearchResults([]); setShowDropdown(false); return; }
+    setSearching(true);
+    try {
+      // If it looks like an HS code, search by code; otherwise full-text search
+      const isCode = /^\d+$/.test(q.trim());
+      let query = supabase
+        .from("hts_catalog")
+        .select("hts8, description, mfn_rate")
+        .limit(8);
+
+      if (isCode) {
+        query = query.like("hts8", `${q}%`);
+      } else {
+        query = query.textSearch("description", q, { type: "plain" });
+      }
+
+      const { data } = await query;
+      setSearchResults(data ?? []);
+      setShowDropdown(true);
+    } catch {
+      // fallback: simple ilike
+      const { data } = await supabase
+        .from("hts_catalog")
+        .select("hts8, description, mfn_rate")
+        .ilike("description", `%${q}%`)
+        .limit(8);
+      setSearchResults(data ?? []);
+      setShowDropdown(true);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  const handleProductInput = (val: string) => {
+    setProductQuery(val);
+    setHsCode("");
+    setProductName("");
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => searchProducts(val), 300);
+  };
+
+  const selectProduct = (r: HtsResult) => {
+    setHsCode(r.hts8);
+    setProductName(r.description);
+    setProductQuery(`${r.description} (HS ${r.hts8})`);
+    setShowDropdown(false);
+  };
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -55,15 +128,17 @@ export default function SimulatorPage() {
         body: { file_base64: base64, file_name: file.name, file_type: file.type },
       });
       if (error) throw error;
-      if (data.hs_code) setHsCode(data.hs_code);
+      if (data.hs_code) {
+        setHsCode(data.hs_code);
+        setProductQuery(data.product_name ? `${data.product_name} (HS ${data.hs_code})` : `HS ${data.hs_code}`);
+      }
       if (data.product_name) setProductName(data.product_name);
       if (data.destination_country) setDestination(data.destination_country);
       if (data.shipment_value) setShipmentValue(String(data.shipment_value));
       setMode("manual");
-      toast({ title: "Document read", description: "Review the extracted fields below and simulate." });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Extraction failed", description: "Could not read the document. Fill in the fields manually.", variant: "destructive" });
+      toast({ title: "Document read", description: "Review the extracted fields and simulate." });
+    } catch {
+      toast({ title: "Extraction failed", description: "Could not read the document. Fill in manually.", variant: "destructive" });
       setMode("manual");
     } finally {
       setExtracting(false);
@@ -72,7 +147,7 @@ export default function SimulatorPage() {
 
   const handleSimulate = async () => {
     if (!hsCode || !destination || !shipmentValue) {
-      toast({ title: "Missing fields", description: "Fill in HS code, destination, and shipment value.", variant: "destructive" });
+      toast({ title: "Missing fields", description: "Select a product, destination, and shipment value.", variant: "destructive" });
       return;
     }
     const value = parseFloat(shipmentValue.replace(/[^0-9.]/g, ""));
@@ -80,7 +155,6 @@ export default function SimulatorPage() {
       toast({ title: "Invalid value", description: "Enter a valid shipment value in USD.", variant: "destructive" });
       return;
     }
-
     setSimulating(true);
     try {
       const { data, error } = await supabase.functions.invoke("simulate-tariff", {
@@ -88,39 +162,35 @@ export default function SimulatorPage() {
       });
       if (error) throw error;
       navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value } } });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Simulation failed", description: "Could not generate simulation. Please try again.", variant: "destructive" });
+    } catch {
+      toast({ title: "Simulation failed", description: "Could not generate simulation. Try again.", variant: "destructive" });
     } finally {
       setSimulating(false);
     }
   };
 
-  const selectedProduct = PRODUCTS.find(p => p.hs_code === hsCode);
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <NavBar />
       <main className="container mx-auto px-5 sm:px-6 py-12 max-w-2xl">
+
         <div className="mb-8">
+          <div className="text-xs font-medium uppercase tracking-wider text-primary mb-2">Tariff simulator</div>
           <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">Simulate a shipment</h1>
-          <p className="text-muted-foreground">Upload a trade document or enter details manually. We'll show the tariff impact and what to do.</p>
+          <p className="text-muted-foreground text-sm">Search any of 12,788 products or upload a trade document. We combine 25 years of USITC rate history with live scraped tariff data.</p>
         </div>
 
         {/* Mode toggle */}
         <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setMode("document")}
-            className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${mode === "document" ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
-          >
-            Upload document
-          </button>
-          <button
-            onClick={() => setMode("manual")}
-            className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${mode === "manual" ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
-          >
-            Enter manually
-          </button>
+          {(["document", "manual"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${mode === m ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {m === "document" ? "Upload document" : "Enter manually"}
+            </button>
+          ))}
         </div>
 
         {/* Document upload */}
@@ -140,28 +210,23 @@ export default function SimulatorPage() {
                     <div className="font-medium text-foreground text-sm">{file.name}</div>
                     <div className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</div>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                    className="ml-2 text-muted-foreground hover:text-foreground"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="ml-2 text-muted-foreground hover:text-foreground">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
                 <>
                   <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground mb-1">Drop your invoice, packing list, or trade document here</p>
-                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG supported</p>
+                  <p className="text-sm text-muted-foreground mb-1">Drop your invoice, packing list, or trade document</p>
+                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG · Mistral AI reads the document</p>
                 </>
               )}
             </div>
-
             {file && (
               <Button onClick={handleExtract} disabled={extracting} className="w-full mt-3 bg-primary hover:bg-primary/90 text-primary-foreground">
-                {extracting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Reading document…</> : <><FileText className="h-4 w-4 mr-2" /> Extract shipment details</>}
+                {extracting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Reading document…</> : <><FileText className="h-4 w-4 mr-2" />Extract shipment details</>}
               </Button>
             )}
-
             <div className="mt-4 text-center">
               <button onClick={() => setMode("manual")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
                 Skip — enter details manually
@@ -170,42 +235,64 @@ export default function SimulatorPage() {
           </div>
         )}
 
-        {/* Manual / post-extraction form */}
+        {/* Manual form */}
         {mode === "manual" && (
           <div className="space-y-5 mb-6">
+
+            {/* Product search */}
             <div>
               <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
                 <Package className="h-4 w-4 text-primary" /> Product
               </Label>
-              <Select value={hsCode} onValueChange={(v) => { setHsCode(v); setProductName(PRODUCTS.find(p => p.hs_code === v)?.name ?? ""); }}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a product…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRODUCTS.map((p) => (
-                    <SelectItem key={p.hs_code} value={p.hs_code}>
-                      {p.name} <span className="text-muted-foreground ml-1">(HS {p.hs_code})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {!selectedProduct && (
-                <div className="mt-2 flex gap-2">
+              <div ref={searchRef} className="relative">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Or enter HS code (e.g. 1201)"
-                    value={hsCode}
-                    onChange={(e) => setHsCode(e.target.value)}
-                    className="font-mono"
+                    placeholder="Search 12,788 products or paste HS code…"
+                    value={productQuery}
+                    onChange={(e) => handleProductInput(e.target.value)}
+                    onFocus={() => productQuery.length >= 2 && setShowDropdown(true)}
+                    className="pl-9"
                   />
-                  <Input
-                    placeholder="Product name"
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                  />
+                  {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
+
+                {showDropdown && searchResults.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                    {searchResults.map((r) => (
+                      <button
+                        key={r.hts8}
+                        onClick={() => selectProduct(r)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors border-b border-border last:border-0"
+                      >
+                        <div className="text-sm font-medium text-foreground truncate">{r.description}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs font-mono text-muted-foreground">HS {r.hts8}</span>
+                          {r.mfn_rate > 0 && (
+                            <span className="text-xs text-muted-foreground">· {(r.mfn_rate * 100).toFixed(1)}% MFN</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {showDropdown && !searching && searchResults.length === 0 && productQuery.length >= 2 && (
+                  <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-card shadow-lg p-3 text-sm text-muted-foreground">
+                    No products found. Try a different keyword or paste the HS code directly.
+                  </div>
+                )}
+              </div>
+
+              {hsCode && (
+                <div className="mt-1.5 flex items-center gap-2 text-xs text-success">
+                  <div className="h-1.5 w-1.5 rounded-full bg-success" />
+                  HS {hsCode} selected · from USITC 2026 database
                 </div>
               )}
             </div>
 
+            {/* Destination */}
             <div>
               <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
                 <Globe className="h-4 w-4 text-primary" /> Destination country
@@ -222,6 +309,7 @@ export default function SimulatorPage() {
               </Select>
             </div>
 
+            {/* Shipment value */}
             <div>
               <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-primary" /> Shipment value (USD)
@@ -237,15 +325,20 @@ export default function SimulatorPage() {
         )}
 
         {mode === "manual" && (
-          <Button
-            onClick={handleSimulate}
-            disabled={simulating || !hsCode || !destination || !shipmentValue}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-medium"
-          >
-            {simulating
-              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Simulating…</>
-              : <>Simulate tariff impact <ArrowRight className="ml-2 h-4 w-4" /></>}
-          </Button>
+          <>
+            <Button
+              onClick={handleSimulate}
+              disabled={simulating || !hsCode || !destination || !shipmentValue}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-medium"
+            >
+              {simulating
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Simulating — pulling 25yr history + live rates…</>
+                : <>Simulate tariff impact <ArrowRight className="ml-2 h-4 w-4" /></>}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Queries USITC 1998–2026 history + live scraped retaliation rates
+            </p>
+          </>
         )}
       </main>
       <Footer />
