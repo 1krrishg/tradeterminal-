@@ -65,21 +65,15 @@ export default function SimulatorPage() {
       if (isCode) {
         query = query.like("hts8", `${q}%`);
       } else {
-        query = query.textSearch("description", q, { type: "plain" });
+        query = query.ilike("description", `%${q}%`);
       }
 
       const { data } = await query;
       setSearchResults(data ?? []);
       setShowDropdown(true);
     } catch {
-      // fallback: simple ilike
-      const { data } = await supabase
-        .from("hts_catalog")
-        .select("hts8, description, mfn_rate")
-        .ilike("description", `%${q}%`)
-        .limit(8);
-      setSearchResults(data ?? []);
-      setShowDropdown(true);
+      setSearchResults([]);
+      setShowDropdown(false);
     } finally {
       setSearching(false);
     }
