@@ -97,6 +97,8 @@ export default function ResultsPage() {
   const { state } = useLocation();
   const { toast } = useToast();
   const result: SimResult | undefined = state?.result;
+  const tradeMode: "exporter" | "importer" = state?.input?.tradeMode ?? "exporter";
+  const isImporter = tradeMode === "importer";
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -167,8 +169,11 @@ export default function ResultsPage() {
               {result.product_name.length > 50 ? result.product_name.substring(0, 50) + "…" : result.product_name}
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              → {result.destination_country} · {fmt(result.shipment_value)} shipment · HS {result.hs_code}
+              {isImporter ? `From ${result.destination_country} → US` : `→ ${result.destination_country}`} · {fmt(result.shipment_value)} shipment · HS {result.hs_code}
             </p>
+            <div className={`inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${isImporter ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
+              {isImporter ? "📦 Import analysis" : "🚢 Export analysis"}
+            </div>
           </div>
           <Button asChild variant="outline" size="sm" className="flex-shrink-0">
             <Link to="/simulate"><RefreshCw className="h-3.5 w-3.5 mr-1.5" />New</Link>
@@ -192,7 +197,9 @@ export default function ResultsPage() {
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Retaliation probability</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {isImporter ? "Rate escalation probability" : "Retaliation probability"}
+              </div>
             </div>
             <div className="flex items-end gap-2 mb-1">
               <div className={`text-4xl font-bold font-mono ${(result.retaliation_probability ?? 0) >= 60 ? "text-destructive" : (result.retaliation_probability ?? 0) >= 30 ? "text-warning" : "text-success"}`}>
@@ -200,9 +207,13 @@ export default function ResultsPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              {result.retaliation_rate > 0
-                ? "Active retaliation confirmed — live scraped data"
-                : "Probability of new retaliation based on historical trade war patterns"}
+              {isImporter
+                ? result.retaliation_rate > 0
+                  ? "Additional US duties active on this origin — live scraped data"
+                  : "Probability US raises duties on this product based on 29-year history"
+                : result.retaliation_rate > 0
+                  ? "Active retaliation confirmed — live scraped data"
+                  : "Probability of new retaliation based on historical trade war patterns"}
             </p>
           </div>
         </div>
@@ -221,9 +232,9 @@ export default function ResultsPage() {
           {[
             { label: "HS Code", value: result.hs_code },
             { label: "MFN duty (USITC 2026)", value: `${result.mfn_rate}%` },
-            { label: "Retaliatory tariff (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
+            { label: isImporter ? "Additional US duties (live)" : "Retaliatory tariff (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
             { label: "Effective rate today", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
-            { label: "Tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : "warning" },
+            { label: isImporter ? "Duty you pay on entry (US customs)" : "Tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : "warning" },
           ].map(({ label, value, highlight }) => (
             <div key={label} className="flex justify-between gap-3 px-4 py-2.5 text-sm">
               <span className="text-muted-foreground">{label}</span>
@@ -277,7 +288,9 @@ export default function ResultsPage() {
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
               <Globe2 className="h-3.5 w-3.5 text-muted-foreground" />
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Alternative markets · ranked by effective rate</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {isImporter ? "Alternative sourcing countries · ranked by US duty rate" : "Alternative markets · ranked by effective rate"}
+              </div>
             </div>
             <div className="divide-y divide-border">
               {result.alternative_markets.map((m) => (
@@ -285,7 +298,9 @@ export default function ResultsPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="text-sm font-medium text-foreground">{m.country}</div>
                     {m.retaliation === 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">No retaliation</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">
+                        {isImporter ? "No additional US duties" : "No retaliation"}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-4 flex-shrink-0 text-right">

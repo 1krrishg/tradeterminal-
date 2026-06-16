@@ -14,12 +14,21 @@ export function Hero() {
             </div>
 
             <h1 className="text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.05] font-semibold tracking-tight text-foreground mb-5">
-              Know the tariff hit before you ship.
+              Know the tariff hit before you ship — or buy.
             </h1>
 
             <p className="text-base sm:text-lg text-muted-foreground max-w-xl mb-7 leading-relaxed">
-              Upload your invoice or enter a shipment. TariffLens combines 29 years of official USITC rate history with live-scraped retaliatory tariffs to simulate dollar impact, predict rate changes, and tell you exactly where to ship instead.
+              For US exporters and importers. TariffLens combines 29 years of official USITC rate history with live-scraped tariff data to simulate your exact dollar exposure, predict rate changes, and find you a better market or supplier.
             </p>
+
+            <div className="flex gap-2 mb-6">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-700 font-medium">
+                🚢 Exporters — see foreign retaliation on your goods
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700 font-medium">
+                📦 Importers — see US duties on what you buy
+              </div>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-5 font-medium w-full sm:w-auto">

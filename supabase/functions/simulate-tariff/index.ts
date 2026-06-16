@@ -50,7 +50,8 @@ serve(async (req) => {
   }
 
   try {
-    const { hs_code, destination_country, shipment_value, product_name } = await req.json();
+    const { hs_code, destination_country, shipment_value, product_name, trade_mode } = await req.json();
+    const isImporter = trade_mode === "importer";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // ── 1. Get live retaliation data from tariff_rates (scraped hourly) ──
@@ -240,11 +241,26 @@ Best alternative: ${bestAlt ? `${bestAlt.country} at ${bestAlt.rate}% (saves $${
         messages: [
           {
             role: "system",
-            content: "You are a senior US export trade advisor. You combine live tariff data with 25-year historical patterns to give precise, dollar-quantified advice. Be direct. Use specific numbers. Max 120 words per section.",
+            content: isImporter
+              ? "You are a senior US import trade advisor. You combine live tariff data with 29-year historical patterns to give precise, dollar-quantified advice to US importers. Focus on what they pay at US customs, Section 301/232 duties, and sourcing alternatives. Be direct. Use specific numbers. Max 120 words per section."
+              : "You are a senior US export trade advisor. You combine live tariff data with 29-year historical patterns to give precise, dollar-quantified advice. Be direct. Use specific numbers. Max 120 words per section.",
           },
           {
             role: "user",
-            content: `Based on this shipment data — including 25 years of rate history and live scraped tariff data — write:
+            content: isImporter
+              ? `Based on this import shipment data — including 29 years of US duty rate history and live scraped data — write:
+
+1. RISK_SUMMARY (2-3 sentences): What is the US import duty situation for this product from ${destination_country}? Explain the MFN duty, any additional Section 301/232 duties, and the dollar cost at US customs. Reference historical rate pattern if relevant.
+
+2. RECOMMENDATION (1-2 sentences): One specific action — e.g. source from a lower-duty country, time the shipment, or request a tariff exclusion — with dollar savings quantified. Be direct.
+
+3. PREDICTION (2 sentences): Based on the historical US duty rate pattern and current trade climate, what is likely to happen to this import cost in the next 6-12 months?
+
+Return JSON: {"risk_summary": "...", "recommendation": "...", "prediction": "..."}
+
+Data:
+${context}`
+              : `Based on this shipment data — including 29 years of rate history and live scraped tariff data — write:
 
 1. RISK_SUMMARY (2-3 sentences): What is happening right now with this product's tariff situation? Explain the effective rate, why retaliation exists (if any), and the dollar cost. Reference the historical pattern if relevant.
 

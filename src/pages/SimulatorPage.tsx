@@ -10,19 +10,21 @@ import { Footer } from "@/components/landing/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const DESTINATION_COUNTRIES = [
+const COUNTRIES = [
   "China", "European Union", "Canada", "Mexico", "Japan", "India",
   "South Korea", "United Kingdom", "Australia", "Brazil", "Singapore",
   "Turkey", "Vietnam", "Indonesia", "Thailand", "Malaysia",
 ];
 
 type Mode = "document" | "manual";
+type TradeMode = "exporter" | "importer";
 type HtsResult = { hts8: string; description: string; mfn_rate: number };
 
 export default function SimulatorPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("document");
+  const [tradeMode, setTradeMode] = useState<TradeMode>("exporter");
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -152,10 +154,10 @@ export default function SimulatorPage() {
     setSimulating(true);
     try {
       const { data, error } = await supabase.functions.invoke("simulate-tariff", {
-        body: { hs_code: hsCode, destination_country: destination, shipment_value: value, product_name: productName },
+        body: { hs_code: hsCode, destination_country: destination, shipment_value: value, product_name: productName, trade_mode: tradeMode },
       });
       if (error) throw error;
-      navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value } } });
+      navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value, tradeMode } } });
     } catch {
       toast({ title: "Simulation failed", description: "Could not generate simulation. Try again.", variant: "destructive" });
     } finally {
@@ -171,7 +173,28 @@ export default function SimulatorPage() {
         <div className="mb-8">
           <div className="text-xs font-medium uppercase tracking-wider text-primary mb-2">Tariff simulator</div>
           <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">Simulate a shipment</h1>
-          <p className="text-muted-foreground text-sm">Search any of 12,788 products or upload a trade document. We combine 25 years of USITC rate history with live scraped tariff data.</p>
+          <p className="text-muted-foreground text-sm">Search any of 12,788 products or upload a trade document. We combine 29 years of USITC rate history with live scraped tariff data.</p>
+        </div>
+
+        {/* Importer / Exporter toggle */}
+        <div className="mb-5">
+          <div className="text-xs font-medium text-muted-foreground mb-2">I am a US…</div>
+          <div className="flex gap-2">
+            {(["exporter", "importer"] as TradeMode[]).map((tm) => (
+              <button
+                key={tm}
+                onClick={() => setTradeMode(tm)}
+                className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-colors ${tradeMode === tm ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+              >
+                {tm === "exporter" ? "🚢 Exporter — selling abroad" : "📦 Importer — buying from abroad"}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {tradeMode === "exporter"
+              ? "See what foreign countries charge on your goods — live retaliation + 29yr US export duty history."
+              : "See what the US charges on goods you bring in — MFN duty + Section 301/232 additional duties."}
+          </p>
         </div>
 
         {/* Mode toggle */}
@@ -286,17 +309,18 @@ export default function SimulatorPage() {
               )}
             </div>
 
-            {/* Destination */}
+            {/* Country */}
             <div>
               <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
-                <Globe className="h-4 w-4 text-primary" /> Destination country
+                <Globe className="h-4 w-4 text-primary" />
+                {tradeMode === "exporter" ? "Destination country (where you're shipping TO)" : "Origin country (where you're importing FROM)"}
               </Label>
               <Select value={destination} onValueChange={setDestination}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select destination…" />
+                  <SelectValue placeholder={tradeMode === "exporter" ? "Select destination…" : "Select origin country…"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {DESTINATION_COUNTRIES.map((c) => (
+                  {COUNTRIES.map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
@@ -326,8 +350,10 @@ export default function SimulatorPage() {
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-medium"
             >
               {simulating
-                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Simulating — pulling 25yr history + live rates…</>
-                : <>Simulate tariff impact <ArrowRight className="ml-2 h-4 w-4" /></>}
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Simulating — pulling 29yr history + live rates…</>
+                : tradeMode === "exporter"
+                  ? <>Simulate export risk <ArrowRight className="ml-2 h-4 w-4" /></>
+                  : <>Simulate import cost <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
             <p className="text-xs text-muted-foreground mt-2 text-center">
               Queries USITC 1998–2026 history + live scraped retaliation rates
