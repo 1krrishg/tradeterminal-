@@ -21,7 +21,7 @@ select cron.schedule(
   $$
   select net.http_post(
     url := 'https://qszregcopfbiavgwvfip.supabase.co/functions/v1/scrape-tariffs',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzenJlZ2NvcGZiaWF2Z3d2ZmlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNjI4MDYsImV4cCI6MjA5NTkzODgwNn0.6kEdoJ63_sUsMNafzggVHFPJCopco3RliddII0Y-wUk"}'::jsonb,
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer <SUPABASE_ANON_KEY>"}'::jsonb,
     body := '{}'::jsonb
   );
   $$
