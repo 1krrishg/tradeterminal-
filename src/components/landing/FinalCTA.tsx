@@ -23,14 +23,9 @@ export function FinalCTA() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base">
-            <a href="https://github.com/1krrishg/tariff-lens" target="_blank" rel="noopener noreferrer">
-              View on GitHub
-            </a>
-          </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-6">
-          Built on USITC official data · Live scraping via Supabase + Groq · Top 6 at AWS Harness Hackathon SF
+          Built on USITC official data · Live scraping via Supabase + Groq
         </p>
       </div>
     </section>

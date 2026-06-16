@@ -21,14 +21,6 @@ export function NavBar() {
           <nav className="hidden md:flex items-center gap-7 text-sm">
             <a href="#how" className={`${linkBase} ${linkInactive}`}>How it works</a>
             <a href="#scenarios" className={`${linkBase} ${linkInactive}`}>Live data</a>
-            <a
-              href="https://github.com/1krrishg/tariff-lens"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${linkBase} ${linkInactive}`}
-            >
-              GitHub
-            </a>
           </nav>
         )}
 
