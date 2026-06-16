@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingDown, CheckCircle2, AlertTriangle, Radio, RefreshCw, AlertCircle } from "lucide-react";
+import { TrendingDown, CheckCircle2, AlertTriangle, Radio, RefreshCw, AlertCircle, FileText, ShieldAlert } from "lucide-react";
 
 type TariffEntry = {
   hs_code: string;
@@ -16,6 +16,15 @@ type ScrapeEntry = {
   source_label: string;
   mentions_found: number;
   scraped_at: string;
+};
+
+type RegulatoryAlert = {
+  title: string;
+  abstract: string;
+  source_url: string;
+  published_date: string;
+  agency: string;
+  alert_type: string;
 };
 
 function timeAgo(iso: string) {
@@ -42,13 +51,14 @@ function isStale(iso: string | undefined, thresholdHours = 2) {
 export function LiveFeed() {
   const [tariffs, setTariffs] = useState<TariffEntry[]>([]);
   const [scrapes, setScrapes] = useState<ScrapeEntry[]>([]);
+  const [alerts, setAlerts] = useState<RegulatoryAlert[]>([]);
   const [lastPing, setLastPing] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
   async function load() {
-    const [{ data: t }, { data: s }] = await Promise.all([
+    const [{ data: t }, { data: s }, { data: a }] = await Promise.all([
       supabase
         .from("tariff_rates")
         .select("hs_code,product_name,destination_country,effective_rate,retaliation_rate,retaliation_note,synced_at")
@@ -60,9 +70,15 @@ export function LiveFeed() {
         .select("source_label,mentions_found,scraped_at")
         .order("scraped_at", { ascending: false })
         .limit(3),
+      supabase
+        .from("regulatory_alerts")
+        .select("title,abstract,source_url,published_date,agency,alert_type")
+        .order("published_date", { ascending: false })
+        .limit(4),
     ]);
     if (t) setTariffs(t);
     if (s) setScrapes(s);
+    if (a) setAlerts(a);
     setLastPing(new Date().toISOString());
     setLoading(false);
   }
@@ -74,7 +90,9 @@ export function LiveFeed() {
       const { data, error } = await supabase.functions.invoke("scrape-tariffs");
       if (error) throw error;
       const upserted = data?.total_upserted ?? 0;
-      setRefreshMsg(upserted > 0 ? `Updated ${upserted} tariff rates from live sources.` : "Scrape complete — no new rates found.");
+      const alerts = data?.regulatory_alerts ?? 0;
+      const rejected = data?.rejected?.length ?? 0;
+      setRefreshMsg(`Updated ${upserted} verified rates · ${alerts} regulatory alerts · ${rejected} entries rejected by validation`);
       await load();
     } catch {
       setRefreshMsg("Scrape failed — check edge function logs.");
@@ -204,9 +222,38 @@ export function LiveFeed() {
                 )}
               </div>
               <div className="px-4 py-2.5 bg-muted/20 border-t border-border">
-                <div className="text-[10px] text-muted-foreground">Sources: Wikipedia trade war articles + Groq extraction</div>
+                <div className="text-[10px] text-muted-foreground">Sources: Wikipedia + USTR + Federal Register API · HS code validation + rate sanity checks applied</div>
               </div>
             </div>
+
+            {/* Regulatory alerts */}
+            {alerts.length > 0 && (
+              <div className="mt-3 rounded-xl border border-warning/30 bg-warning-soft overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-warning/20 flex items-center gap-2">
+                  <ShieldAlert className="h-3.5 w-3.5 text-warning" />
+                  <span className="text-xs font-medium text-warning">Regulatory watch · Federal Register</span>
+                </div>
+                <div className="divide-y divide-warning/10">
+                  {alerts.map((a, i) => (
+                    <a
+                      key={i}
+                      href={a.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block px-4 py-3 hover:bg-warning/10 transition-colors"
+                    >
+                      <div className="flex items-start gap-2">
+                        <FileText className="h-3 w-3 text-warning mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-foreground leading-snug line-clamp-2">{a.title}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{a.agency} · {a.published_date}</div>
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 mt-3">
