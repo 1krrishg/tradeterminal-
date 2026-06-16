@@ -65,16 +65,21 @@ serve(async (req) => {
       .order("year", { ascending: true })
       .limit(200);
 
-    // Aggregate history by year (avg across variants)
+    // Aggregate history by year — stored as decimal fractions, convert to pct, filter sentinels
     const historyByYear: Record<number, number[]> = {};
     for (const row of (historyRows ?? [])) {
+      const raw = row.mfn_rate ?? 0;
+      // Skip sentinel values (9999+), keep real rates only
+      if (raw > 100) continue;
+      // Convert decimal → percentage
+      const pct = raw <= 1 ? raw * 100 : raw;
       if (!historyByYear[row.year]) historyByYear[row.year] = [];
-      historyByYear[row.year].push(row.mfn_rate ?? 0);
+      historyByYear[row.year].push(pct);
     }
     const rateHistory = Object.entries(historyByYear)
       .map(([yr, rates]) => ({
         year: parseInt(yr),
-        rate: parseFloat((rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(4)),
+        rate: parseFloat((rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(2)),
       }))
       .sort((a, b) => a.year - b.year);
 
@@ -87,9 +92,14 @@ serve(async (req) => {
       .maybeSingle();
 
     // ── 5. Compose rates ──
-    const mfn_rate = liveEntry?.mfn_rate ?? catalog?.mfn_rate ?? 3;
+    // hts_catalog stores mfn_rate as decimal fraction (0.068 = 6.8%) — multiply by 100
+    // tariff_rates stores rates already as percentages (e.g. 25 = 25%)
+    // Cap at 150 to filter USITC sentinel values like 9999.99
+    const rawCatalogMfn = catalog?.mfn_rate ?? 0;
+    const catalogMfnPct = Math.min(rawCatalogMfn > 1 ? rawCatalogMfn : rawCatalogMfn * 100, 150);
+    const mfn_rate = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
     const retaliation_rate = liveEntry?.retaliation_rate ?? 0;
-    const effective_rate = liveEntry?.effective_rate ?? (mfn_rate + retaliation_rate);
+    const effective_rate = liveEntry?.effective_rate ?? parseFloat((mfn_rate + retaliation_rate).toFixed(2));
     const retaliation_note = liveEntry?.retaliation_note ?? null;
     const resolved_product = liveEntry?.product_name ?? catalog?.description ?? product_name ?? "Goods";
     const data_freshness = liveEntry?.synced_at ?? null;
@@ -127,7 +137,7 @@ serve(async (req) => {
           .eq("hs_code", hs_code.substring(0, 4))
           .eq("destination_country", alt.name)
           .maybeSingle();
-        const altRate = altLive?.effective_rate ?? altLive?.mfn_rate ?? (mfn_rate * 0.3);
+        const altRate = altLive?.effective_rate ?? altLive?.mfn_rate ?? mfn_rate;
         return {
           country: alt.name,
           code: alt.code,
@@ -176,7 +186,7 @@ serve(async (req) => {
 
     // ── 10. Groq AI analysis ──
     const histSummary = rateHistory.length > 0
-      ? `Rate history (avg MFN by year): ${rateHistory.slice(-8).map(r => `${r.year}:${(r.rate * 100).toFixed(1)}%`).join(", ")}`
+      ? `Rate history (avg MFN by year): ${rateHistory.slice(-8).map(r => `${r.year}:${r.rate.toFixed(1)}%`).join(", ")}`
       : "No historical data available";
 
     const context = `
@@ -252,10 +262,11 @@ ${context}`,
       alternative_markets: bestAlts,
       volatility_stats: volRow ? {
         volatility: volRow.volatility,
-        max_year_jump: volRow.max_year_jump,
+        // Convert decimal fractions to percentages for display, cap sentinels
+        max_year_jump: Math.min((volRow.max_year_jump ?? 0) * 100, 150),
         max_jump_year: volRow.max_jump_year,
-        avg_rate: volRow.avg_rate,
-        max_rate: volRow.max_rate,
+        avg_rate: Math.min((volRow.avg_rate ?? 0) * 100, 150),
+        max_rate: Math.min((volRow.max_rate ?? 0) * 100, 150),
       } : null,
       risk_summary: aiOutput.risk_summary,
       recommendation: aiOutput.recommendation,
