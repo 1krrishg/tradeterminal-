@@ -96,7 +96,10 @@ serve(async (req) => {
     // tariff_rates stores rates already as percentages (e.g. 25 = 25%)
     // Cap at 150 to filter USITC sentinel values like 9999.99
     const rawCatalogMfn = catalog?.mfn_rate ?? 0;
-    const catalogMfnPct = Math.min(rawCatalogMfn > 1 ? rawCatalogMfn : rawCatalogMfn * 100, 150);
+    // Sentinel: USITC stores 9999.99 for compound/specific duties. Treat those as unknown (0).
+    const isSentinel = rawCatalogMfn > 100;
+    const catalogMfnPct = isSentinel ? 0 : (rawCatalogMfn <= 1 ? rawCatalogMfn * 100 : rawCatalogMfn);
+    // Fallback 3% represents a typical US MFN rate when ad-valorem component is unavailable
     const mfn_rate = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
     const retaliation_rate = liveEntry?.retaliation_rate ?? 0;
     const effective_rate = liveEntry?.effective_rate ?? parseFloat((mfn_rate + retaliation_rate).toFixed(2));
@@ -115,7 +118,8 @@ serve(async (req) => {
       (volatility * 200) +
       (max_jump * 150)
     ));
-    const risk_label = volRow?.risk_label ?? (risk_score >= 60 ? "HIGH" : risk_score >= 30 ? "MEDIUM" : "LOW");
+    // Derive label from current risk_score (not historical volatility label which may be stale)
+    const risk_label = risk_score >= 60 ? "HIGH" : risk_score >= 30 ? "MEDIUM" : "LOW";
 
     // ── 7. Retaliation probability ──
     // Products that had US additional duties imposed → historically trigger retaliation
@@ -137,7 +141,9 @@ serve(async (req) => {
           .eq("hs_code", hs_code.substring(0, 4))
           .eq("destination_country", alt.name)
           .maybeSingle();
-        const altRate = altLive?.effective_rate ?? altLive?.mfn_rate ?? mfn_rate;
+        // Filter sentinel values from alt market rates; fall back to this product's mfn_rate
+        const altRaw = altLive?.effective_rate ?? altLive?.mfn_rate ?? mfn_rate;
+        const altRate = altRaw > 150 ? mfn_rate : altRaw;
         return {
           country: alt.name,
           code: alt.code,
