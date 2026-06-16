@@ -57,21 +57,102 @@ export default function SimulatorPage() {
     if (q.length < 2) { setSearchResults([]); setShowDropdown(false); return; }
     setSearching(true);
     try {
-      // If it looks like an HS code, search by code; otherwise full-text search
       const isCode = /^\d+$/.test(q.trim());
-      let query = supabase
-        .from("hts_catalog")
-        .select("hts8, description, mfn_rate")
-        .limit(8);
-
       if (isCode) {
-        query = query.like("hts8", `${q}%`);
-      } else {
-        query = query.ilike("description", `%${q}%`);
+        const { data } = await supabase
+          .from("hts_catalog")
+          .select("hts8, description, mfn_rate")
+          .like("hts8", `${q}%`)
+          .limit(8);
+        setSearchResults(data ?? []);
+        setShowDropdown(true);
+        return;
       }
 
-      const { data } = await query;
-      setSearchResults(data ?? []);
+      // Map everyday terms → USITC language
+      const synonyms: Record<string, string[]> = {
+        laptop: ["automatic data processing", "portable", "computer"],
+        laptops: ["automatic data processing", "portable", "computer"],
+        computer: ["automatic data processing", "computing"],
+        computers: ["automatic data processing"],
+        phone: ["telephone", "cellular"],
+        phones: ["telephone", "cellular"],
+        smartphone: ["telephone", "cellular"],
+        smartphones: ["telephone", "cellular"],
+        iphone: ["telephone", "cellular"],
+        tv: ["television", "monitor"],
+        television: ["television"],
+        car: ["motor vehicle", "passenger"],
+        cars: ["motor vehicle", "passenger"],
+        automobile: ["motor vehicle", "passenger"],
+        truck: ["motor vehicle", "truck"],
+        shoes: ["footwear"],
+        shoe: ["footwear"],
+        sneakers: ["footwear", "athletic"],
+        shirt: ["apparel", "garment", "knit"],
+        shirts: ["apparel", "garment", "knit"],
+        clothes: ["apparel", "garment", "textile"],
+        clothing: ["apparel", "garment", "textile"],
+        steel: ["steel", "iron"],
+        aluminum: ["aluminum", "aluminium"],
+        aluminium: ["aluminum", "aluminium"],
+        soybean: ["soya", "soybean"],
+        soybeans: ["soya", "soybean"],
+        corn: ["maize", "corn"],
+        wheat: ["wheat"],
+        chicken: ["poultry", "fowl"],
+        beef: ["bovine", "beef"],
+        pork: ["swine", "pork"],
+        wine: ["wine", "grape"],
+        whiskey: ["spirits", "whisky", "bourbon"],
+        bourbon: ["spirits", "bourbon", "whisky"],
+        medicine: ["pharmaceutical", "medicament"],
+        drug: ["pharmaceutical", "medicament"],
+        drugs: ["pharmaceutical", "medicament"],
+        solar: ["photovoltaic", "solar"],
+        battery: ["battery", "accumulator"],
+        batteries: ["battery", "accumulator"],
+        furniture: ["furniture", "seat"],
+        watch: ["watch", "timepiece"],
+        watches: ["watch", "timepiece"],
+        jewelry: ["jewelry", "jewellery", "precious"],
+        jewellery: ["jewelry", "jewellery"],
+        semiconductor: ["semiconductor", "integrated circuit"],
+        chip: ["semiconductor", "integrated circuit"],
+        chips: ["semiconductor", "integrated circuit"],
+        aircraft: ["aircraft", "airplane"],
+        airplane: ["aircraft"],
+        boat: ["vessel", "boat"],
+        ship: ["vessel", "ship"],
+      };
+
+      const lower = q.toLowerCase().trim();
+      const mapped = synonyms[lower];
+      const terms = mapped ?? [q];
+
+      // Run searches for each term in parallel, deduplicate by hts8
+      const results = await Promise.all(
+        terms.slice(0, 3).map(t =>
+          supabase
+            .from("hts_catalog")
+            .select("hts8, description, mfn_rate")
+            .ilike("description", `%${t}%`)
+            .limit(6)
+        )
+      );
+
+      const seen = new Set<string>();
+      const merged: typeof searchResults = [];
+      for (const { data } of results) {
+        for (const row of (data ?? [])) {
+          if (!seen.has(row.hts8)) {
+            seen.add(row.hts8);
+            merged.push(row);
+          }
+        }
+      }
+
+      setSearchResults(merged.slice(0, 8));
       setShowDropdown(true);
     } catch {
       setSearchResults([]);
