@@ -26,12 +26,15 @@ export function NavBar() {
 
         <div className="flex items-center gap-2">
           {(onSim || onResults) && (
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
               <Link to="/">← Home</Link>
             </Button>
           )}
           <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground flex-shrink-0">
-            <Link to="/simulate">Simulate a shipment</Link>
+            <Link to="/simulate" className="whitespace-nowrap">
+              <span className="hidden sm:inline">Simulate a shipment</span>
+              <span className="sm:hidden">Simulate</span>
+            </Link>
           </Button>
         </div>
       </div>

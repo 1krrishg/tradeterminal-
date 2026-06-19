@@ -21,7 +21,7 @@ export function Hero() {
               For US exporters and importers. TariffLens combines 29 years of official USITC rate history with live-scraped tariff data to simulate your exact dollar exposure, predict rate changes, and find you a better market or supplier.
             </p>
 
-            <div className="flex gap-2 mb-6">
+            <div className="flex flex-col sm:flex-row gap-2 mb-6">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-700 font-medium">
                 🚢 Exporters — see foreign retaliation on your goods
               </div>

@@ -267,7 +267,8 @@ export default function SimulatorPage() {
                 onClick={() => setTradeMode(tm)}
                 className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-colors ${tradeMode === tm ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
               >
-                {tm === "exporter" ? "🚢 Exporter — selling abroad" : "📦 Importer — buying from abroad"}
+                <span className="hidden sm:inline">{tm === "exporter" ? "🚢 Exporter — selling abroad" : "📦 Importer — buying from abroad"}</span>
+                <span className="sm:hidden">{tm === "exporter" ? "🚢 Exporter" : "📦 Importer"}</span>
               </button>
             ))}
           </div>
@@ -356,7 +357,7 @@ export default function SimulatorPage() {
                 </div>
 
                 {showDropdown && searchResults.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                  <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden max-h-60 overflow-y-auto">
                     {searchResults.map((r) => (
                       <button
                         key={r.hts8}

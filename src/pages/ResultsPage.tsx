@@ -160,24 +160,24 @@ export default function ResultsPage() {
       <main className="container mx-auto px-5 sm:px-6 py-10 max-w-3xl space-y-5">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Link to="/simulate" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <Link to="/simulate" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" /> New simulation
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
-              {result.product_name.length > 50 ? result.product_name.substring(0, 50) + "…" : result.product_name}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {isImporter ? `From ${result.destination_country} → US` : `→ ${result.destination_country}`} · {fmt(result.shipment_value)} shipment · HS {result.hs_code}
-            </p>
-            <div className={`inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${isImporter ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
-              {isImporter ? "📦 Import analysis" : "🚢 Export analysis"}
-            </div>
+            <Button asChild variant="outline" size="sm" className="flex-shrink-0">
+              <Link to="/simulate"><RefreshCw className="h-3.5 w-3.5 mr-1.5" />New</Link>
+            </Button>
           </div>
-          <Button asChild variant="outline" size="sm" className="flex-shrink-0">
-            <Link to="/simulate"><RefreshCw className="h-3.5 w-3.5 mr-1.5" />New</Link>
-          </Button>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground leading-snug">
+            {result.product_name.length > 60 ? result.product_name.substring(0, 60) + "…" : result.product_name}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1 break-words">
+            {isImporter ? `From ${result.destination_country} → US` : `→ ${result.destination_country}`} · {fmt(result.shipment_value)} shipment · HS {result.hs_code}
+          </p>
+          <div className={`inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${isImporter ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
+            {isImporter ? "📦 Import analysis" : "🚢 Export analysis"}
+          </div>
         </div>
 
         {/* Risk score + probability — the headline numbers */}
@@ -266,18 +266,20 @@ export default function ResultsPage() {
         {/* Scenarios */}
         <div>
           <h2 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">Scenarios</h2>
-          <div className="grid sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {result.scenarios.map((s) => (
               <div key={s.name} className={`rounded-xl border p-4 ${sevColor(s.severity)}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-medium text-foreground">{s.name}</div>
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <div className="text-xs font-medium text-foreground leading-snug">{s.name}</div>
                   {sevIcon(s.severity)}
                 </div>
-                <div className="font-mono text-2xl font-bold text-foreground mb-0.5">{s.tariff_rate}%</div>
-                <div className={`text-sm font-medium mb-2 ${s.tariff_cost > 0 ? "text-destructive" : "text-success"}`}>
-                  {s.tariff_cost > 0 ? `-${fmt(s.tariff_cost)}` : "No cost"}
+                <div className="flex items-baseline gap-3 sm:block">
+                  <div className="font-mono text-2xl font-bold text-foreground mb-0.5">{s.tariff_rate}%</div>
+                  <div className={`text-sm font-medium sm:mb-2 ${s.tariff_cost > 0 ? "text-destructive" : "text-success"}`}>
+                    {s.tariff_cost > 0 ? `-${fmt(s.tariff_cost)}` : "No cost"}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{s.description}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed mt-1 sm:mt-0">{s.description}</p>
               </div>
             ))}
           </div>
@@ -307,30 +309,32 @@ export default function ResultsPage() {
             </div>
             <div className="divide-y divide-border">
               {result.alternative_markets.map((m) => (
-                <div key={m.country} className="flex items-center justify-between px-4 py-3 gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div key={m.country} className="flex items-center justify-between px-4 py-3 gap-2">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-foreground">{m.country}</div>
-                    {m.retaliation === 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">
-                        {isImporter ? "No additional US duties" : "No retaliation"}
-                      </span>
-                    )}
-                    {(m as any).source === "wto" && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">WTO official</span>
-                    )}
-                    {(m as any).source === "live" && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">Live scraped</span>
-                    )}
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {m.retaliation === 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">
+                          {isImporter ? "No added US duties" : "No retaliation"}
+                        </span>
+                      )}
+                      {(m as any).source === "wto" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">WTO</span>
+                      )}
+                      {(m as any).source === "live" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">Live</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 flex-shrink-0 text-right">
+                  <div className="flex flex-col items-end flex-shrink-0">
                     <div className={`font-mono text-sm font-bold ${m.rate === 0 ? "text-success" : m.rate < result.effective_rate ? "text-warning" : "text-muted-foreground"}`}>
                       {m.rate}%
                     </div>
                     {m.saving > 0 && (
-                      <div className="text-xs text-success font-medium">saves {fmt(m.saving)}</div>
+                      <div className="text-[11px] text-success font-medium">saves {fmt(m.saving)}</div>
                     )}
                     {m.saving < 0 && (
-                      <div className="text-xs text-destructive font-medium">{fmt(Math.abs(m.saving))} more</div>
+                      <div className="text-[11px] text-destructive font-medium">{fmt(Math.abs(m.saving))} more</div>
                     )}
                   </div>
                 </div>

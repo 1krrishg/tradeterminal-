@@ -222,7 +222,10 @@ export function LiveFeed() {
                 )}
               </div>
               <div className="px-4 py-2.5 bg-muted/20 border-t border-border">
-                <div className="text-[10px] text-muted-foreground">Data: WTO Tariff Download Facility (api.wto.org) · US Federal Register (federalregister.gov) · Retaliation data: China MOFCOM, EU Official Journal, Canada Gazette, India Customs Notifications</div>
+                <div className="text-[10px] text-muted-foreground leading-relaxed">
+                  Data: WTO Tariff Download Facility · US Federal Register<br className="sm:hidden" />
+                  <span className="hidden sm:inline"> · </span>Retaliation: China MOFCOM, EU Official Journal, Canada Gazette, India Customs
+                </div>
               </div>
             </div>
 
