@@ -185,13 +185,29 @@ serve(async (req) => {
     const risk_label = risk_score >= 60 ? "HIGH" : risk_score >= 30 ? "MEDIUM" : "LOW";
 
     // ── 7. Retaliation probability ──
-    // Products that had US additional duties imposed → historically trigger retaliation
-    // Proxy: if col2_rate > 0.15, product is politically sensitive
+    // Allies with stable trade relations rarely retaliate; active trade-war countries already have
+    const ALLY_COUNTRIES = new Set(["Singapore", "Japan", "Canada", "Australia", "United Kingdom",
+      "New Zealand", "South Korea", "Taiwan", "Germany", "France", "Netherlands"]);
+    const ACTIVE_DISPUTE_COUNTRIES = new Set(["China", "Russia", "Iran", "Venezuela"]);
     const col2_rate = catalog?.col2_rate ?? 0;
-    const base_prob = retaliation_rate > 0 ? 0.85 : 0; // already retaliating
-    const hist_prob = max_jump > 0.05 ? 0.65 : max_jump > 0.02 ? 0.40 : 0.20;
-    const sensitivity_prob = col2_rate > 0.15 ? 0.15 : 0;
-    const retaliation_probability = Math.min(0.98, base_prob || (hist_prob + sensitivity_prob));
+
+    let retaliation_probability: number;
+    if (retaliation_rate > 0) {
+      // Already retaliating — probability of further escalation
+      retaliation_probability = 0.60;
+    } else if (ALLY_COUNTRIES.has(destination_country)) {
+      // Stable ally — very low baseline, only if product is genuinely sensitive
+      const ally_base = col2_rate > 0.20 ? 0.12 : 0.05;
+      retaliation_probability = ally_base;
+    } else if (ACTIVE_DISPUTE_COUNTRIES.has(destination_country)) {
+      // Active trade disputes — elevated
+      const hist_prob = max_jump > 0.05 ? 0.70 : max_jump > 0.02 ? 0.50 : 0.35;
+      retaliation_probability = Math.min(0.90, hist_prob + (col2_rate > 0.15 ? 0.15 : 0));
+    } else {
+      // Neutral/other — moderate based on history
+      const hist_prob = max_jump > 0.05 ? 0.40 : max_jump > 0.02 ? 0.25 : 0.12;
+      retaliation_probability = Math.min(0.60, hist_prob + (col2_rate > 0.15 ? 0.10 : 0));
+    }
     const retaliation_probability_pct = Math.round(retaliation_probability * 100);
 
     // ── 8. Alternative markets ──
@@ -250,8 +266,20 @@ serve(async (req) => {
       .slice(0, 3);
 
     // ── 9. Scenarios ──
-    const escalatedRate = parseFloat(Math.min(effective_rate * 1.4, effective_rate + 25).toFixed(1));
+    // Escalation: use real historical max jump if available; otherwise use country-specific risk
+    const historicalMaxRate = rateHistory.length > 0 ? Math.max(...rateHistory.map(r => r.rate)) : effective_rate;
+    const worstHistoricalJump = historicalMaxRate - effective_rate;
+    // Escalation is: worst historical spike OR country-risk bump (25% for dispute countries, 5% for allies)
+    const countryEscalationAdder = ACTIVE_DISPUTE_COUNTRIES.has(destination_country) ? 25
+      : ALLY_COUNTRIES.has(destination_country) ? 5 : 15;
+    const escalationDelta = Math.max(worstHistoricalJump, countryEscalationAdder);
+    const escalatedRate = parseFloat(Math.min(effective_rate + escalationDelta, 150).toFixed(1));
     const escalatedCost = Math.round(shipment_value * (escalatedRate / 100));
+    const escalationLabel = ACTIVE_DISPUTE_COUNTRIES.has(destination_country)
+      ? `+${escalationDelta.toFixed(0)}% retaliatory escalation`
+      : ALLY_COUNTRIES.has(destination_country)
+      ? `+${escalationDelta.toFixed(0)}% under new trade pressure`
+      : `+${escalationDelta.toFixed(0)}% escalation scenario`;
     const bestAlt = bestAlts[0];
 
     const scenarios = [
@@ -264,12 +292,12 @@ serve(async (req) => {
         severity: effective_rate >= 25 ? "high" : effective_rate >= 10 ? "medium" : effective_rate > 0 ? "low" : "none",
       },
       {
-        name: "Escalation (+40%)",
-        description: `If trade tensions escalate, rate reaches ${escalatedRate}%. Historical precedent: ${volRow?.max_jump_year ? `${volRow.max_jump_year} spike` : "rate has jumped before"}. Probability: ${retaliation_probability_pct}%.`,
+        name: `Escalation (${escalationLabel})`,
+        description: `If trade tensions rise, rate reaches ${escalatedRate}%. ${volRow?.max_jump_year ? `Worst historical jump was in ${volRow.max_jump_year}.` : ""} Retaliation probability: ${retaliation_probability_pct}%.`,
         tariff_rate: escalatedRate,
         tariff_cost: escalatedCost,
         net_proceeds: shipment_value - escalatedCost,
-        severity: escalatedRate >= 25 ? "high" : "medium",
+        severity: escalatedRate >= 25 ? "high" : escalatedRate >= 10 ? "medium" : "low",
       },
       {
         name: bestAlt ? `Reroute → ${bestAlt.country}` : "Alternative market",
