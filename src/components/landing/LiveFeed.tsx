@@ -222,7 +222,7 @@ export function LiveFeed() {
                 )}
               </div>
               <div className="px-4 py-2.5 bg-muted/20 border-t border-border">
-                <div className="text-[10px] text-muted-foreground">Sources: WTO Official API + verified government retaliation lists + Federal Register · 16 countries tracked</div>
+                <div className="text-[10px] text-muted-foreground">Data: WTO Tariff Download Facility (api.wto.org) · US Federal Register (federalregister.gov) · Retaliation data: China MOFCOM, EU Official Journal, Canada Gazette, India Customs Notifications</div>
               </div>
             </div>
 

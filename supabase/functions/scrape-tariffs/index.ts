@@ -110,27 +110,27 @@ async function fetchWtoMfnRates(
   countryCodes: string[],
   hsCodes: string[]
 ): Promise<Map<string, number>> {
-  // WTO API supports comma-separated batch queries — one call for all
-  const r = countryCodes.join(",");
-  const pc = hsCodes.join(",");
-  const url = `https://api.wto.org/timeseries/v1/data?i=HS_A_0010&r=${r}&ps=2022&pc=${pc}&fmt=json&mode=full&head=M&lang=1&max=5000`;
-
-  const resp = await fetch(url, {
-    headers: { "Ocp-Apim-Subscription-Key": WTO_API_KEY },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!resp.ok) throw new Error(`WTO API error: ${resp.status}`);
-
-  const data = await resp.json();
-  const rows = data?.Dataset ?? [];
-
-  // Build map: "countryCode::hs4" → MFN rate
   const rateMap = new Map<string, number>();
-  for (const row of rows) {
-    if (typeof row.Value === "number" && row.ReportingEconomyCode && row.ProductOrSectorCode) {
-      const key = `${row.ReportingEconomyCode}::${row.ProductOrSectorCode}`;
-      rateMap.set(key, row.Value);
-    }
+  const pc = hsCodes.join(",");
+
+  // WTO API has URL length limits — batch 5 countries at a time
+  const BATCH = 5;
+  for (let i = 0; i < countryCodes.length; i += BATCH) {
+    const chunk = countryCodes.slice(i, i + BATCH).join(",");
+    const url = `https://api.wto.org/timeseries/v1/data?i=HS_A_0010&r=${chunk}&ps=2022&pc=${pc}&fmt=json&mode=full&head=M&lang=1&max=2000`;
+    try {
+      const resp = await fetch(url, {
+        headers: { "Ocp-Apim-Subscription-Key": WTO_API_KEY },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      for (const row of (data?.Dataset ?? [])) {
+        if (typeof row.Value === "number" && row.ReportingEconomyCode && row.ProductOrSectorCode) {
+          rateMap.set(`${row.ReportingEconomyCode}::${row.ProductOrSectorCode}`, row.Value);
+        }
+      }
+    } catch { /* skip failed batch */ }
   }
   return rateMap;
 }
