@@ -11,52 +11,50 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 // ── Sources ──────────────────────────────────────────────────────────────────
-// Mix of official government sources + Wikipedia for narrative context.
-// Federal Register API returns real JSON — most reliable.
-// Wikipedia plain HTML — good for retaliation context.
-// USTR/CBP pages — static HTML sections where accessible.
+// Only plain-HTML sources — JS-rendered sites return empty content in Deno fetch.
+// Tested: Wikipedia works. USTR.gov is JS-rendered (returns 0). Reuters RSS works.
+// Federal Register HTML search works. WTO news RSS works.
 
 const HTML_SOURCES = [
   {
     url: "https://en.wikipedia.org/wiki/China%E2%80%93United_States_trade_war",
     label: "Wikipedia: US-China Trade War",
-    country_hint: "China",
-    authority: "narrative", // narrative | official
+    authority: "narrative",
   },
   {
     url: "https://en.wikipedia.org/wiki/Trump_tariffs",
     label: "Wikipedia: Trump Tariffs (2025)",
-    country_hint: null,
     authority: "narrative",
   },
   {
     url: "https://en.wikipedia.org/wiki/Canada%E2%80%93United_States_trade_war",
     label: "Wikipedia: US-Canada Trade War",
-    country_hint: "Canada",
     authority: "narrative",
   },
   {
-    url: "https://en.wikipedia.org/wiki/United_States_trade_representative",
-    label: "Wikipedia: USTR Overview",
-    country_hint: null,
+    url: "https://en.wikipedia.org/wiki/United_States%E2%80%93European_Union_trade_relations",
+    label: "Wikipedia: US-EU Trade Relations",
     authority: "narrative",
   },
   {
-    // USTR publishes plain-HTML press release lists
-    url: "https://ustr.gov/about-us/policy-offices/press-office/press-releases",
-    label: "USTR: Press Releases",
-    country_hint: null,
+    // India-US trade tensions
+    url: "https://en.wikipedia.org/wiki/India%E2%80%93United_States_relations",
+    label: "Wikipedia: India-US Relations",
+    authority: "narrative",
+  },
+  {
+    // Federal Register HTML search — official govt docs, plain HTML
+    url: "https://www.federalregister.gov/documents/search?conditions%5Bterm%5D=tariff+retaliation",
+    label: "Federal Register: Tariff Rules",
     authority: "official",
   },
 ];
 
 // Federal Register API — official US government regulatory announcements
-// Free JSON API, no auth needed. Returns documents mentioning tariffs.
 const FEDERAL_REGISTER_QUERIES = [
-  "tariff retaliation china",
-  "section 301 tariff",
+  "tariff retaliation",
+  "section 301",
   "section 232 steel aluminum",
-  "trade war tariff rate",
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -108,16 +106,20 @@ async function fetchHtml(url: string): Promise<string> {
 }
 
 async function fetchFederalRegister(query: string): Promise<RegulatoryAlert[]> {
-  const params = new URLSearchParams({
-    "conditions[term]": query,
-    "conditions[publication_date][gte]": "2024-01-01",
-    "conditions[type][]": "RULE",
-    "conditions[type][]": "PROPOSED_RULE",
-    "conditions[type][]": "NOTICE",
-    "fields[]": "title,abstract,html_url,publication_date,agencies",
-    "per_page": "5",
-    "order": "newest",
-  });
+  // URLSearchParams object literal doesn't support duplicate keys — use append()
+  const params = new URLSearchParams();
+  params.append("conditions[term]", query);
+  params.append("conditions[publication_date][gte]", "2024-01-01");
+  params.append("conditions[type][]", "RULE");
+  params.append("conditions[type][]", "PROPOSED_RULE");
+  params.append("conditions[type][]", "NOTICE");
+  params.append("fields[]", "title");
+  params.append("fields[]", "abstract");
+  params.append("fields[]", "html_url");
+  params.append("fields[]", "publication_date");
+  params.append("fields[]", "agencies");
+  params.append("per_page", "5");
+  params.append("order", "newest");
 
   const resp = await fetch(
     `https://www.federalregister.gov/api/v1/documents.json?${params}`,
@@ -300,25 +302,41 @@ serve(async (req) => {
     const allRaw: RawEntry[] = [];
     const sourceResults: any[] = [];
 
-    // ── 1. Scrape all HTML sources in parallel ──
+    // ── 1. Fetch all pages in parallel, then call Groq sequentially ──
+    // Fetching HTML is IO-bound (fast, parallel is fine).
+    // Groq extraction is rate-limited — must be sequential with a delay.
+    const fetched: { source: typeof HTML_SOURCES[0]; text: string; error?: string }[] = [];
     await Promise.allSettled(
       HTML_SOURCES.map(async (source) => {
         try {
           const text = await fetchHtml(source.url);
-          const entries = await extractWithGroq(text, source.url, source.authority);
-          allRaw.push(...entries);
-          sourceResults.push({
-            label: source.label,
-            url: source.url,
-            authority: source.authority,
-            extracted: entries.length,
-            sample: entries[0] ? `${entries[0].product_name} → ${entries[0].destination_country}: ${entries[0].effective_rate}%` : "none",
-          });
+          fetched.push({ source, text });
         } catch (err) {
+          fetched.push({ source, text: "", error: String(err) });
           sourceResults.push({ label: source.label, url: source.url, error: String(err), extracted: 0 });
         }
       })
     );
+
+    // Sequential Groq calls with 800ms gap to stay under rate limit
+    for (const { source, text, error } of fetched) {
+      if (error || !text) continue;
+      try {
+        const entries = await extractWithGroq(text, source.url, source.authority);
+        allRaw.push(...entries);
+        sourceResults.push({
+          label: source.label,
+          url: source.url,
+          authority: source.authority,
+          extracted: entries.length,
+          sample: entries[0] ? `${entries[0].product_name} → ${entries[0].destination_country}: ${entries[0].effective_rate}%` : "none",
+        });
+      } catch (err) {
+        sourceResults.push({ label: source.label, url: source.url, error: String(err), extracted: 0 });
+      }
+      // Wait 2s between Groq calls — free tier allows ~30 req/min, 5 sources needs spacing
+      await new Promise(r => setTimeout(r, 2000));
+    }
 
     // ── 2. Fetch Federal Register regulatory alerts ──
     const allAlerts: RegulatoryAlert[] = [];
