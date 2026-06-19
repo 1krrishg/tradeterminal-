@@ -54,14 +54,14 @@ function RiskMeter({ score, label }: { score: number; label: string }) {
 
 function Sparkline({ data }: { data: HistoryPoint[] }) {
   if (!data || data.length < 2) return <div className="text-xs text-muted-foreground italic">No historical data</div>;
-  const rates = data.map(d => d.rate * 100);
+  const rates = data.map(d => d.rate); // already in percentage from edge function
   const minR = Math.min(...rates);
   const maxR = Math.max(...rates);
   const range = maxR - minR || 0.01;
   const w = 320, h = 60;
   const pts = data.map((d, i) => {
     const x = (i / (data.length - 1)) * (w - 20) + 10;
-    const y = h - ((d.rate * 100 - minR) / range) * (h - 10) - 5;
+    const y = h - ((d.rate - minR) / range) * (h - 10) - 5;
     return `${x},${y}`;
   }).join(" ");
 
@@ -69,7 +69,7 @@ function Sparkline({ data }: { data: HistoryPoint[] }) {
   let maxIdx = 0;
   rates.forEach((r, i) => { if (r > rates[maxIdx]) maxIdx = i; });
   const spikeX = (maxIdx / (data.length - 1)) * (w - 20) + 10;
-  const spikeY = h - ((rates[maxIdx] - minR) / range) * (h - 10) - 5;
+  const spikeY = h - ((rates[maxIdx] - minR) / range) * (h - 10) - 5; // rates already %
 
   return (
     <div>
@@ -314,6 +314,12 @@ export default function ResultsPage() {
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">
                         {isImporter ? "No additional US duties" : "No retaliation"}
                       </span>
+                    )}
+                    {(m as any).source === "wto" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">WTO official</span>
+                    )}
+                    {(m as any).source === "live" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">Live scraped</span>
                     )}
                   </div>
                   <div className="flex items-center gap-4 flex-shrink-0 text-right">

@@ -128,14 +128,13 @@ serve(async (req) => {
       .order("year", { ascending: true })
       .limit(200);
 
-    // Aggregate history by year — stored as decimal fractions, convert to pct, filter sentinels
+    // Aggregate history by year — rate_history stores mfn_rate as decimal fraction (0.03 = 3%)
+    // Always multiply by 100, then filter sentinels (USITC sentinel 9999.99 → 999999%)
     const historyByYear: Record<number, number[]> = {};
     for (const row of (historyRows ?? [])) {
       const raw = row.mfn_rate ?? 0;
-      // Skip sentinel values (9999+), keep real rates only
-      if (raw > 100) continue;
-      // Convert decimal → percentage
-      const pct = raw <= 1 ? raw * 100 : raw;
+      const pct = raw * 100;
+      if (pct > 200) continue; // filter sentinels and compound-duty placeholders
       if (!historyByYear[row.year]) historyByYear[row.year] = [];
       historyByYear[row.year].push(pct);
     }
