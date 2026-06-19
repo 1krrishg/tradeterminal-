@@ -155,7 +155,10 @@ serve(async (req) => {
     const retaliation_probability_pct = Math.round(retaliation_probability * 100);
 
     // ── 8. Alternative markets ──
-    const altCountries = ALL_COUNTRIES.filter(c => c.name !== destination_country).slice(0, 6);
+    // Only show countries where we have REAL scraped data in tariff_rates.
+    // Never fall back to the product's own MFN rate — that makes every country
+    // look identical and is meaningless to the user.
+    const altCountries = ALL_COUNTRIES.filter(c => c.name !== destination_country);
     const altResults = await Promise.all(
       altCountries.map(async (alt) => {
         const { data: altLive } = await supabase
@@ -164,20 +167,29 @@ serve(async (req) => {
           .eq("hs_code", hs_code.substring(0, 4))
           .eq("destination_country", alt.name)
           .maybeSingle();
-        // Filter sentinel values from alt market rates; fall back to this product's mfn_rate
-        const altRaw = altLive?.effective_rate ?? altLive?.mfn_rate ?? mfn_rate;
-        const altRate = altRaw > 150 ? mfn_rate : altRaw;
+
+        // No real data for this country → exclude from results
+        if (!altLive) return null;
+
+        const altRaw = altLive.effective_rate ?? altLive.mfn_rate ?? 0;
+        // Skip sentinel values
+        if (altRaw > 150) return null;
+
         return {
           country: alt.name,
           code: alt.code,
-          rate: parseFloat(altRate.toFixed(1)),
-          cost: Math.round(shipment_value * (altRate / 100)),
-          retaliation: altLive?.retaliation_rate ?? 0,
-          saving: tariff_cost_today - Math.round(shipment_value * (altRate / 100)),
+          rate: parseFloat(altRaw.toFixed(1)),
+          cost: Math.round(shipment_value * (altRaw / 100)),
+          retaliation: altLive.retaliation_rate ?? 0,
+          saving: tariff_cost_today - Math.round(shipment_value * (altRaw / 100)),
         };
       })
     );
-    const bestAlts = altResults.sort((a, b) => a.rate - b.rate).slice(0, 3);
+    // Filter nulls (no data), sort by rate, take top 3
+    const bestAlts = altResults
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) => a.rate - b.rate)
+      .slice(0, 3);
 
     // ── 9. Scenarios ──
     const escalatedRate = parseFloat(Math.min(effective_rate * 1.4, effective_rate + 25).toFixed(1));
