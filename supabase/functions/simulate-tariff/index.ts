@@ -9,6 +9,46 @@ const corsHeaders = {
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const WTO_API_KEY = Deno.env.get("WTO_API_KEY") ?? "";
+
+// WTO reporter codes for each country we support
+const WTO_COUNTRY_CODES: Record<string, string> = {
+  "China": "156",
+  "European Union": "918",
+  "Canada": "124",
+  "Mexico": "484",
+  "Japan": "392",
+  "India": "356",
+  "South Korea": "410",
+  "United Kingdom": "826",
+  "Australia": "36",
+  "Brazil": "76",
+  "Singapore": "702",
+  "Turkey": "792",
+  "Vietnam": "704",
+  "Indonesia": "360",
+  "Thailand": "764",
+  "Malaysia": "458",
+};
+
+// Fetch MFN tariff rate a country charges on a given HS4 product (from WTO official data)
+async function getWtoMfnRate(countryCode: string, hs4: string): Promise<number | null> {
+  if (!WTO_API_KEY) return null;
+  try {
+    const url = `https://api.wto.org/timeseries/v1/data?i=HS_A_0010&r=${countryCode}&ps=2022&pc=${hs4}&fmt=json&mode=full&head=M&lang=1&max=1`;
+    const resp = await fetch(url, {
+      headers: { "Ocp-Apim-Subscription-Key": WTO_API_KEY },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const row = data?.Dataset?.[0];
+    if (row && typeof row.Value === "number") return row.Value;
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 // Simple in-memory rate limiter: 10 requests per minute per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -155,12 +195,12 @@ serve(async (req) => {
     const retaliation_probability_pct = Math.round(retaliation_probability * 100);
 
     // ── 8. Alternative markets ──
-    // Only show countries where we have REAL scraped data in tariff_rates.
-    // Never fall back to the product's own MFN rate — that makes every country
-    // look identical and is meaningless to the user.
+    // Priority: live scraped retaliation data → WTO official MFN rate → exclude
+    // Never fall back to the current product's own rate (makes all countries look identical)
     const altCountries = ALL_COUNTRIES.filter(c => c.name !== destination_country);
     const altResults = await Promise.all(
       altCountries.map(async (alt) => {
+        // 1. Check live scraped retaliation data first
         const { data: altLive } = await supabase
           .from("tariff_rates")
           .select("effective_rate, mfn_rate, retaliation_rate")
@@ -168,24 +208,42 @@ serve(async (req) => {
           .eq("destination_country", alt.name)
           .maybeSingle();
 
-        // No real data for this country → exclude from results
-        if (!altLive) return null;
+        if (altLive) {
+          const altRaw = altLive.effective_rate ?? altLive.mfn_rate ?? 0;
+          if (altRaw <= 150) {
+            return {
+              country: alt.name,
+              code: alt.code,
+              rate: parseFloat(altRaw.toFixed(1)),
+              cost: Math.round(shipment_value * (altRaw / 100)),
+              retaliation: altLive.retaliation_rate ?? 0,
+              saving: tariff_cost_today - Math.round(shipment_value * (altRaw / 100)),
+              source: "live",
+            };
+          }
+        }
 
-        const altRaw = altLive.effective_rate ?? altLive.mfn_rate ?? 0;
-        // Skip sentinel values
-        if (altRaw > 150) return null;
+        // 2. Fall back to WTO official MFN rate for this country
+        const wtoCode = WTO_COUNTRY_CODES[alt.name];
+        if (wtoCode) {
+          const wtoRate = await getWtoMfnRate(wtoCode, hs_code.substring(0, 4));
+          if (wtoRate !== null && wtoRate <= 150) {
+            return {
+              country: alt.name,
+              code: alt.code,
+              rate: parseFloat(wtoRate.toFixed(1)),
+              cost: Math.round(shipment_value * (wtoRate / 100)),
+              retaliation: 0,
+              saving: tariff_cost_today - Math.round(shipment_value * (wtoRate / 100)),
+              source: "wto",
+            };
+          }
+        }
 
-        return {
-          country: alt.name,
-          code: alt.code,
-          rate: parseFloat(altRaw.toFixed(1)),
-          cost: Math.round(shipment_value * (altRaw / 100)),
-          retaliation: altLive.retaliation_rate ?? 0,
-          saving: tariff_cost_today - Math.round(shipment_value * (altRaw / 100)),
-        };
+        return null;
       })
     );
-    // Filter nulls (no data), sort by rate, take top 3
+    // Filter nulls, sort by rate, take top 3
     const bestAlts = altResults
       .filter((r): r is NonNullable<typeof r> => r !== null)
       .sort((a, b) => a.rate - b.rate)

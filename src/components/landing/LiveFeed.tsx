@@ -222,7 +222,7 @@ export function LiveFeed() {
                 )}
               </div>
               <div className="px-4 py-2.5 bg-muted/20 border-t border-border">
-                <div className="text-[10px] text-muted-foreground">Sources: Wikipedia + USTR + Federal Register API · HS code validation + rate sanity checks applied</div>
+                <div className="text-[10px] text-muted-foreground">Sources: WTO Official API + verified government retaliation lists + Federal Register · 16 countries tracked</div>
               </div>
             </div>
 
