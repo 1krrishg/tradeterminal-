@@ -143,6 +143,8 @@ Key rules you must follow:
 - Finished electrical/electronic goods go in Section XVI or XVII — not Section XV (metals).
 - Textiles: classify by chief weight of fiber.
 - Food: classify by preparation method and ingredient.
+- All 3 candidates MUST be plausible for the described product. Never suggest a completely unrelated product (e.g. do NOT suggest iron/steel for a food product, or electronics for agricultural goods). If only 1 or 2 plausible headings exist, repeat the best one with a slightly different subheading, but NEVER fabricate an unrelated heading.
+- Confidence for candidates 2 and 3 must reflect genuine ambiguity — if classification is clear under GRI 1, candidates 2 and 3 should have confidence below 40.
 
 Return a JSON array of exactly 3 candidates, ranked by confidence (highest first). Each candidate:
 {
@@ -189,11 +191,21 @@ Return ONLY the JSON array. No markdown, no explanation.`,
           (t: string) => t.replace(/\./g, "").startsWith(hs4)
         ) ?? false;
 
+        // Penalise heavily if USITC description shares no words with LLM description
+        // (catches cases where the LLM returned a wrong HS code that happens to exist in USITC)
+        let descMismatch = false;
+        if (usitcRow?.description && c.description) {
+          const llmWords = new Set(c.description.toLowerCase().split(/\W+/).filter(w => w.length > 3));
+          const usitcWords = usitcRow.description.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+          const overlap = usitcWords.filter(w => llmWords.has(w)).length;
+          descMismatch = overlap === 0 && usitcWords.length > 2;
+        }
+
         const finalConfidence = scoreConfidence(
-          c.confidence ?? 50,
+          descMismatch ? Math.min(c.confidence ?? 50, 20) : (c.confidence ?? 50),
           !!cbpRuling,
           cbpHsMatches,
-          !!usitcRow,
+          !!usitcRow && !descMismatch,
           c.gri_rule ?? "1",
           (c.disqualified_headings ?? "").length > 20,
         );
@@ -201,7 +213,8 @@ Return ONLY the JSON array. No markdown, no explanation.`,
         return {
           hts8: c.hts8,
           heading: c.heading ?? (c.hts8 ?? "").substring(0, 4),
-          description: usitcRow?.description ?? c.description,
+          description: c.description,
+          usitc_description: usitcRow?.description ?? null,
           gri_rule: c.gri_rule ?? "1",
           reasoning: c.reasoning,
           confidence: finalConfidence,
