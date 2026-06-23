@@ -231,11 +231,15 @@ export default function ResultsPage() {
           </div>
           {[
             { label: "HS Code", value: result.hs_code },
-            { label: "MFN duty (USITC 2026)", value: `${result.mfn_rate}%` },
+            { label: "Trade corridor", value: `${(result as any).origin_country || "US"} → ${result.destination_country}` },
+            { label: "MFN duty (WTO 2022)", value: `${result.mfn_rate}%` },
+            (result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined
+              ? { label: "Preferential rate (FTA)", value: `${(result as any).preferential_rate}%`, highlight: "success" }
+              : null,
             { label: isImporter ? "Additional US duties (live)" : "Retaliatory tariff (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
             { label: "Effective rate today", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
             { label: isImporter ? "Duty you pay on entry (US customs)" : "Tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : "warning" },
-          ].map(({ label, value, highlight }) => (
+          ].filter(Boolean).map(({ label, value, highlight }: any) => (
             <div key={label} className="flex justify-between gap-3 px-4 py-2.5 text-sm">
               <span className="text-muted-foreground">{label}</span>
               <span className={`font-mono font-medium ${highlight === "destructive" ? "text-destructive" : highlight === "warning" ? "text-warning" : highlight === "success" ? "text-success" : "text-foreground"}`}>
@@ -245,6 +249,18 @@ export default function ResultsPage() {
           ))}
           {result.retaliation_note && (
             <div className="px-4 py-2.5 text-xs text-muted-foreground bg-muted/20">{result.retaliation_note}</div>
+          )}
+          {(result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined && (result as any).preferential_saving > 0 && (
+            <div className="px-4 py-3 bg-success-soft border-t border-success/20 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-medium text-success">FTA preferential rate available</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{(result as any).preferential_note}</div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-sm font-bold text-success font-mono">{(result as any).preferential_rate}%</div>
+                <div className="text-[11px] text-success">saves {fmt((result as any).preferential_saving)}</div>
+              </div>
+            </div>
           )}
         </div>
 

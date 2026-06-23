@@ -31,6 +31,7 @@ export default function SimulatorPage() {
 
   const [hsCode, setHsCode] = useState("");
   const [productName, setProductName] = useState("");
+  const [originCountry, setOriginCountry] = useState("United States");
   const [destination, setDestination] = useState("");
   const [shipmentValue, setShipmentValue] = useState("");
   const [incoterms, setIncoterms] = useState("");
@@ -428,7 +429,8 @@ export default function SimulatorPage() {
       if (data.product_name) setProductName(data.product_name);
       // For importers, origin_country = their trading partner; for exporters, destination_country
       if (data.destination_country) setDestination(data.destination_country);
-      if (data.origin_country && !data.destination_country) setDestination(data.origin_country);
+      if (data.origin_country) setOriginCountry(data.origin_country);
+      else if (!data.destination_country && data.origin_country) setDestination(data.origin_country);
       if (data.shipment_value) setShipmentValue(String(data.shipment_value));
       if (data.incoterms) setIncoterms(data.incoterms);
       if (data.quantity) setQuantity(data.quantity);
@@ -473,7 +475,7 @@ export default function SimulatorPage() {
     setSimulating(true);
     try {
       const { data, error } = await supabase.functions.invoke("simulate-tariff", {
-        body: { hs_code: hsCode, destination_country: destination, shipment_value: value, product_name: productName, trade_mode: tradeMode, incoterms: incoterms || undefined, quantity: quantity || undefined },
+        body: { hs_code: hsCode, destination_country: destination, origin_country: originCountry || "United States", shipment_value: value, product_name: productName, trade_mode: tradeMode, incoterms: incoterms || undefined, quantity: quantity || undefined },
       });
       if (error) throw error;
       navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value, tradeMode } } });
@@ -655,23 +657,47 @@ export default function SimulatorPage() {
               )}
             </div>
 
-            {/* Country */}
-            <div>
-              <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
-                <Globe className="h-4 w-4 text-primary" />
-                {tradeMode === "exporter" ? "Destination country (where you're shipping TO)" : "Origin country (where you're importing FROM)"}
-              </Label>
-              <Select value={destination} onValueChange={setDestination}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={tradeMode === "exporter" ? "Select destination…" : "Select origin country…"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Origin + Destination */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" />
+                  {tradeMode === "exporter" ? "Origin (shipping FROM)" : "Origin (manufactured in)"}
+                </Label>
+                <Select value={originCountry} onValueChange={setOriginCountry}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select origin…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["United States", ...COUNTRIES.filter(c => c !== "United States")].map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" />
+                  {tradeMode === "exporter" ? "Destination (shipping TO)" : "Destination (entering)"}
+                </Label>
+                <Select value={destination} onValueChange={setDestination}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={tradeMode === "exporter" ? "Select destination…" : "Select destination…"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {originCountry && destination && (
+              <div className="text-xs text-muted-foreground -mt-2 flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                WTO will check preferential rates for {originCountry} → {destination} corridor
+              </div>
+            )}
 
             {/* Shipment value */}
             <div>

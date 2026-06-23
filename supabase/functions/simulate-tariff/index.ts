@@ -11,8 +11,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WTO_API_KEY = Deno.env.get("WTO_API_KEY") ?? "";
 
-// WTO reporter codes for each country we support
+// WTO reporter codes (importing country that sets the tariff)
 const WTO_COUNTRY_CODES: Record<string, string> = {
+  "United States": "842",
   "China": "156",
   "European Union": "918",
   "Canada": "124",
@@ -31,23 +32,90 @@ const WTO_COUNTRY_CODES: Record<string, string> = {
   "Malaysia": "458",
 };
 
-// Fetch MFN tariff rate a country charges on a given HS4 product (from WTO official data)
-async function getWtoMfnRate(countryCode: string, hs4: string): Promise<number | null> {
+// WTO partner codes (exporting/origin country)
+const WTO_PARTNER_CODES: Record<string, string> = {
+  "United States": "842",
+  "China": "156",
+  "European Union": "918",
+  "Canada": "124",
+  "Mexico": "484",
+  "Japan": "392",
+  "India": "356",
+  "South Korea": "410",
+  "United Kingdom": "826",
+  "Australia": "36",
+  "Brazil": "76",
+  "Singapore": "702",
+  "Turkey": "792",
+  "Vietnam": "704",
+  "Indonesia": "360",
+  "Thailand": "764",
+  "Malaysia": "458",
+};
+
+// Fetch MFN tariff rate a country charges on a given HS4 product
+async function getWtoMfnRate(reporterCode: string, hs4: string): Promise<number | null> {
   if (!WTO_API_KEY) return null;
   try {
-    const url = `https://api.wto.org/timeseries/v1/data?i=HS_A_0010&r=${countryCode}&ps=2022&pc=${hs4}&fmt=json&mode=full&head=M&lang=1&max=1`;
-    const resp = await fetch(url, {
-      headers: { "Ocp-Apim-Subscription-Key": WTO_API_KEY },
-      signal: AbortSignal.timeout(8000),
-    });
+    const url = `https://api.wto.org/timeseries/v1/data?i=HS_A_0010&r=${reporterCode}&ps=2022&pc=${hs4}&fmt=json&mode=full&head=M&lang=1&max=1`;
+    const resp = await fetch(url, { headers: { "Ocp-Apim-Subscription-Key": WTO_API_KEY }, signal: AbortSignal.timeout(8000) });
     if (!resp.ok) return null;
     const data = await resp.json();
     const row = data?.Dataset?.[0];
-    if (row && typeof row.Value === "number") return row.Value;
-    return null;
-  } catch {
-    return null;
-  }
+    return (row && typeof row.Value === "number") ? row.Value : null;
+  } catch { return null; }
+}
+
+// Known FTAs — maps "Reporter::Partner" to agreement name
+// WTO HS_A_0020 gives the best preferential rate the reporter offers to FTA partners
+const FTA_AGREEMENTS: Record<string, string> = {
+  "Canada::United States": "USMCA",
+  "United States::Canada": "USMCA",
+  "Mexico::United States": "USMCA",
+  "United States::Mexico": "USMCA",
+  "Canada::Mexico": "USMCA",
+  "Mexico::Canada": "USMCA",
+  "Australia::United States": "AUSFTA",
+  "United States::Australia": "AUSFTA",
+  "South Korea::United States": "KORUS",
+  "United States::South Korea": "KORUS",
+  "Japan::Australia": "JAEPA",
+  "Australia::Japan": "JAEPA",
+  "Japan::Canada": "CPTPP",
+  "Canada::Japan": "CPTPP",
+  "Japan::Vietnam": "CPTPP",
+  "Vietnam::Japan": "CPTPP",
+  "Japan::Singapore": "CPTPP",
+  "Singapore::Japan": "CPTPP",
+  "Canada::Australia": "CPTPP",
+  "Australia::Canada": "CPTPP",
+  "Australia::Vietnam": "CPTPP",
+  "Vietnam::Australia": "CPTPP",
+  "Singapore::Australia": "CPTPP",
+  "Australia::Singapore": "CPTPP",
+  "United Kingdom::European Union": "UK-EU TCA",
+  "European Union::United Kingdom": "UK-EU TCA",
+  "India::Singapore": "CECA",
+  "Singapore::India": "CECA",
+  "South Korea::Australia": "KAFTA",
+  "Australia::South Korea": "KAFTA",
+  "Japan::India": "CEPA",
+  "India::Japan": "CEPA",
+};
+
+// Fetch WTO preferential rate (HS_A_0020) — the best rate the reporter offers to any FTA partner
+// We use this when we know an FTA exists between origin and destination
+async function getWtoPreferentialRate(reporterCode: string, hs4: string, agreementName: string): Promise<{ rate: number; agreement: string } | null> {
+  if (!WTO_API_KEY) return null;
+  try {
+    const url = `https://api.wto.org/timeseries/v1/data?i=HS_A_0020&r=${reporterCode}&ps=2022&pc=${hs4}&fmt=json&mode=full&head=M&lang=1&max=1`;
+    const resp = await fetch(url, { headers: { "Ocp-Apim-Subscription-Key": WTO_API_KEY }, signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const row = data?.Dataset?.[0];
+    if (!row || typeof row.Value !== "number") return null;
+    return { rate: row.Value, agreement: agreementName };
+  } catch { return null; }
 }
 
 // Simple in-memory rate limiter: 10 requests per minute per IP
@@ -90,7 +158,8 @@ serve(async (req) => {
   }
 
   try {
-    const { hs_code, destination_country, shipment_value, product_name, trade_mode, incoterms, quantity } = await req.json();
+    const { hs_code, destination_country, origin_country, shipment_value, product_name, trade_mode, incoterms, quantity } = await req.json();
+    const originCountry = origin_country || "United States";
     const isImporter = trade_mode === "importer";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -170,6 +239,24 @@ serve(async (req) => {
     const data_freshness = liveEntry?.synced_at ?? null;
 
     const tariff_cost_today = Math.round(shipment_value * (effective_rate / 100));
+
+    // ── 5b. WTO MFN + preferential rate for origin → destination corridor ──
+    const destWtoCode = WTO_COUNTRY_CODES[destination_country] ?? null;
+    const ftaKey = `${destination_country}::${originCountry}`;
+    const ftaAgreement = FTA_AGREEMENTS[ftaKey] ?? null;
+    // Run MFN + preferential lookups in parallel (preferential only if known FTA exists)
+    const [wtoMfn, wtoPref] = await Promise.all([
+      destWtoCode ? getWtoMfnRate(destWtoCode, hs4) : Promise.resolve(null),
+      (destWtoCode && ftaAgreement)
+        ? getWtoPreferentialRate(destWtoCode, hs4, ftaAgreement)
+        : Promise.resolve(null),
+    ]);
+    // Use WTO MFN as authoritative override if USITC data is unavailable or sentinel
+    const authoritative_mfn = wtoMfn ?? mfn_rate;
+    const preferential_rate = wtoPref?.rate ?? null;
+    const preferential_saving = preferential_rate !== null
+      ? Math.round(shipment_value * ((authoritative_mfn - preferential_rate) / 100))
+      : null;
 
     // ── 6. Risk score (0–100) ──
     const volatility = volRow?.volatility ?? 0;
@@ -388,13 +475,18 @@ ${context}`,
     return new Response(JSON.stringify({
       hs_code,
       product_name: resolved_product,
+      origin_country: originCountry,
       destination_country,
       shipment_value,
-      mfn_rate,
+      mfn_rate: authoritative_mfn,
       retaliation_rate,
       effective_rate,
       retaliation_note,
       tariff_cost_today,
+      // WTO preferential rate for this exact origin→destination corridor
+      preferential_rate,
+      preferential_saving,
+      preferential_note: wtoPref ? `${ftaAgreement} preferential rate — ${originCountry} qualifies as FTA partner (WTO HS_A_0020)` : null,
       scenarios,
       risk_score,
       risk_label,
@@ -403,7 +495,6 @@ ${context}`,
       alternative_markets: bestAlts,
       volatility_stats: volRow ? {
         volatility: volRow.volatility,
-        // Convert decimal fractions to percentages for display, cap sentinels
         max_year_jump: Math.min((volRow.max_year_jump ?? 0) * 100, 150),
         max_jump_year: volRow.max_jump_year,
         avg_rate: Math.min((volRow.avg_rate ?? 0) * 100, 150),
@@ -412,7 +503,7 @@ ${context}`,
       risk_summary: aiOutput.risk_summary,
       recommendation: aiOutput.recommendation,
       prediction: aiOutput.prediction,
-      data_source: "USITC HTS 1998–2026 (262k rows) + Live scraped retaliation data",
+      data_source: "USITC HTS 1998–2026 (262k rows) + WTO Official API + Live scraped retaliation data",
       data_freshness,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
