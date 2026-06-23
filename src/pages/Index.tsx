@@ -1,5 +1,6 @@
 import { NavBar } from "@/components/landing/NavBar";
 import { Hero } from "@/components/landing/Hero";
+import { DataSources } from "@/components/landing/DataSources";
 import { LiveFeed } from "@/components/landing/LiveFeed";
 import { LiveTicker } from "@/components/landing/LiveTicker";
 import { DemoStages } from "@/components/landing/DemoStages";
@@ -15,6 +16,7 @@ export default function Index() {
       <NavBar />
       <main>
         <Hero />
+        <DataSources />
         <LiveTicker />
         <LiveFeed />
         <DemoStages />

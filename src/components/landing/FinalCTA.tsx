@@ -25,7 +25,7 @@ export function FinalCTA() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-6">
-          Built on USITC official data · Live scraping via Supabase + Groq
+          USITC HTS catalog (262k rows, 1998–2026) · WTO Timeseries API · CBP CROSS rulings · Live retaliation data
         </p>
       </div>
     </section>

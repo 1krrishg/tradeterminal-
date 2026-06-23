@@ -10,7 +10,7 @@ export function Hero() {
           <div className="lg:col-span-5 lg:pt-6">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-secondary border border-border text-[11px] sm:text-xs text-muted-foreground mb-5">
               <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
-              Live data · 12,788 products · 29 years of history
+              USITC · WTO API · CBP CROSS · updated hourly
             </div>
 
             <h1 className="text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.05] font-semibold tracking-tight text-foreground mb-5">
@@ -43,9 +43,9 @@ export function Hero() {
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> US official rate history 1998–2026</span>
-              <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Live retaliation from China, EU, Canada, India</span>
-              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> Auto-classifies your product for customs</span>
+              <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> USITC HTS catalog · 262k records · 1998–2026</span>
+              <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Live retaliation · China, EU, Canada, India</span>
+              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> HS-8 classification via GRI · CBP rulings cited</span>
             </div>
           </div>
 
