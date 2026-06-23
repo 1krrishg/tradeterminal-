@@ -323,9 +323,9 @@ export default function ResultsPage() {
             <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
               <div>
                 <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-                  Rate history · {result.rate_history[0]?.year}–{result.rate_history[result.rate_history.length - 1]?.year}
+                  US rate history · {result.rate_history[0]?.year}–{result.rate_history[result.rate_history.length - 1]?.year}
                 </div>
-                <div className="text-sm font-medium text-foreground">How this rate has moved over {result.rate_history.length} years</div>
+                <div className="text-sm font-medium text-foreground">What the US has charged on this product over time</div>
               </div>
               {result.volatility_stats && (
                 <div className="flex gap-4 text-right">
@@ -341,14 +341,16 @@ export default function ResultsPage() {
               )}
             </div>
             <Sparkline data={result.rate_history} />
-            {result.volatility_stats?.max_jump_year && (
-              <div className="mt-3 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground leading-relaxed">
-                Biggest single-year jump: <span className="text-destructive font-medium">+{(result.volatility_stats.max_year_jump * 100).toFixed(1)} percentage points</span> in {result.volatility_stats.max_jump_year}.
-                {result.effective_rate > 0 && result.effective_rate === result.volatility_stats.max_rate * 100
-                  ? " The rate is currently at its historical peak."
-                  : " The current rate is below the historical peak."}
-              </div>
-            )}
+            <div className="mt-3 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground leading-relaxed">
+              {result.volatility_stats?.max_jump_year
+                ? <>Biggest single-year jump: <span className="text-destructive font-medium">+{(result.volatility_stats.max_year_jump * 100).toFixed(1)} percentage points</span> in {result.volatility_stats.max_jump_year}.
+                  {result.effective_rate > 0 && result.volatility_stats.max_rate && result.effective_rate >= result.volatility_stats.max_rate * 100 - 1
+                    ? " The rate is currently at its historical peak."
+                    : " The current rate is below the historical peak."}</>
+                : result.rate_history.every(r => r.rate === 0)
+                  ? "The US charges 0% on this product domestically — this is accurate, not missing data. The destination country's rate shown above is separate."
+                  : "No major rate spikes recorded in the historical data."}
+            </div>
           </div>
         )}
 

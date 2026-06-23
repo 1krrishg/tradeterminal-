@@ -222,37 +222,37 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // ── 5. Compose rates ──
-    // hts_catalog stores mfn_rate as decimal fraction (0.068 = 6.8%) — multiply by 100
-    // tariff_rates stores rates already as percentages (e.g. 25 = 25%)
-    // Cap at 150 to filter USITC sentinel values like 9999.99
+    // ── 5. USITC catalog rate (US domestic rate — used as fallback only) ──
     const rawCatalogMfn = catalog?.mfn_rate ?? 0;
-    // Sentinel: USITC stores 9999.99 for compound/specific duties. Treat those as unknown (0).
     const isSentinel = rawCatalogMfn > 100;
     const catalogMfnPct = isSentinel ? 0 : (rawCatalogMfn <= 1 ? rawCatalogMfn * 100 : rawCatalogMfn);
-    // Fallback 3% represents a typical US MFN rate when ad-valorem component is unavailable
-    const mfn_rate = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
+    const usMfnFallback = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
     const retaliation_rate = liveEntry?.retaliation_rate ?? 0;
-    const effective_rate = liveEntry?.effective_rate ?? parseFloat((mfn_rate + retaliation_rate).toFixed(2));
     const retaliation_note = liveEntry?.retaliation_note ?? null;
     const resolved_product = liveEntry?.product_name ?? catalog?.description ?? product_name ?? "Goods";
     const data_freshness = liveEntry?.synced_at ?? null;
 
-    const tariff_cost_today = Math.round(shipment_value * (effective_rate / 100));
-
-    // ── 5b. WTO MFN + preferential rate for origin → destination corridor ──
+    // ── 5b. WTO MFN + preferential rate — must run BEFORE effective_rate calculation ──
+    // authoritative_mfn = what the DESTINATION country charges (their tariff on our goods)
+    // This is the rate the exporter actually pays, not the US domestic rate
     const destWtoCode = WTO_COUNTRY_CODES[destination_country] ?? null;
     const ftaKey = `${destination_country}::${originCountry}`;
     const ftaAgreement = FTA_AGREEMENTS[ftaKey] ?? null;
-    // Run MFN + preferential lookups in parallel (preferential only if known FTA exists)
     const [wtoMfn, wtoPref] = await Promise.all([
       destWtoCode ? getWtoMfnRate(destWtoCode, hs4) : Promise.resolve(null),
       (destWtoCode && ftaAgreement)
         ? getWtoPreferentialRate(destWtoCode, hs4, ftaAgreement)
         : Promise.resolve(null),
     ]);
-    // Use WTO MFN as authoritative override if USITC data is unavailable or sentinel
-    const authoritative_mfn = wtoMfn ?? mfn_rate;
+    // authoritative_mfn: destination country's WTO rate (what they charge everyone)
+    // Falls back to US catalog rate only if WTO API has no data for this corridor
+    const authoritative_mfn = wtoMfn ?? usMfnFallback;
+    const mfn_rate = authoritative_mfn; // alias for readability below
+
+    // effective_rate uses the destination country's actual rate, not the US catalog rate
+    const effective_rate = liveEntry?.effective_rate ?? parseFloat((authoritative_mfn + retaliation_rate).toFixed(2));
+    const tariff_cost_today = Math.round(shipment_value * (effective_rate / 100));
+
     const preferential_rate = wtoPref?.rate ?? null;
     const preferential_saving = preferential_rate !== null
       ? Math.round(shipment_value * ((authoritative_mfn - preferential_rate) / 100))
