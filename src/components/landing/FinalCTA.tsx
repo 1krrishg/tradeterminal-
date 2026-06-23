@@ -14,7 +14,7 @@ export function FinalCTA() {
           Your next shipment is at risk.<br className="hidden sm:block" /> Find out before you commit.
         </h2>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-8">
-          Describe your product, upload your invoice, or paste an HS code. You get a GRI classification with a CBP ruling citation, 29-year rate history, live retaliation data, and the dollar cost on your shipment.
+          Describe your product or upload your invoice. You get the right customs code, the tax rate in every major market, the dollar cost on your shipment, and one clear recommendation.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 text-base font-medium">

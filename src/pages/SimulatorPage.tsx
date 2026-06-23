@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, X, Loader2, ArrowRight, Globe, Package, DollarSign, Search, CheckCircle2, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, FileText, X, Loader2, ArrowRight, Globe, Package, DollarSign, Search, CheckCircle2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -532,6 +532,16 @@ export default function SimulatorPage() {
     }
   };
 
+  const LOADING_STAGES = [
+    "Identifying your product for customs...",
+    "Pulling 29 years of rate history...",
+    "Checking live retaliation from China, EU, Canada, India...",
+    "Checking for FTA preferential rates...",
+    "Running risk analysis...",
+    "Building your recommendation...",
+  ];
+  const [loadingStage, setLoadingStage] = useState(0);
+
   const handleSimulate = async () => {
     if (!hsCode || !destination || !shipmentValue) {
       toast({ title: "Missing fields", description: "Select a product, destination, and shipment value.", variant: "destructive" });
@@ -543,15 +553,23 @@ export default function SimulatorPage() {
       return;
     }
     setSimulating(true);
+    setLoadingStage(0);
+
+    // Advance loading stages while API call runs
+    const stageInterval = setInterval(() => {
+      setLoadingStage(prev => (prev < LOADING_STAGES.length - 1 ? prev + 1 : prev));
+    }, 900);
+
     try {
       const { data, error } = await supabase.functions.invoke("simulate-tariff", {
         body: { hs_code: hsCode, destination_country: destination, origin_country: originCountry || "United States", shipment_value: value, product_name: productName, trade_mode: tradeMode, incoterms: incoterms || undefined, quantity: quantity || undefined },
       });
       if (error) throw error;
-      navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value, tradeMode } } });
+      navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value, tradeMode }, classification: selectedCandidate } });
     } catch {
       toast({ title: "Simulation failed", description: "Could not generate simulation. Try again.", variant: "destructive" });
     } finally {
+      clearInterval(stageInterval);
       setSimulating(false);
     }
   };
@@ -972,14 +990,30 @@ export default function SimulatorPage() {
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-medium"
             >
               {simulating
-                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Simulating — pulling 29yr history + live rates…</>
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{LOADING_STAGES[loadingStage]}</>
                 : tradeMode === "exporter"
                   ? <>Simulate export risk <ArrowRight className="ml-2 h-4 w-4" /></>
                   : <>Simulate import cost <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Queries USITC 1998–2026 history + live scraped retaliation rates
-            </p>
+            {simulating && (
+              <div className="mt-3 rounded-lg border border-border bg-muted/20 overflow-hidden">
+                {LOADING_STAGES.map((stage, i) => (
+                  <div key={stage} className={`flex items-center gap-2.5 px-4 py-2 text-xs transition-colors ${i === loadingStage ? "bg-primary/5 text-foreground" : i < loadingStage ? "text-success" : "text-muted-foreground/40"}`}>
+                    {i < loadingStage
+                      ? <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
+                      : i === loadingStage
+                        ? <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                        : <div className="h-3 w-3 rounded-full border border-muted-foreground/20 shrink-0" />}
+                    {stage}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!simulating && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Queries official rate history going back to 1998 · live scraped retaliation rates
+              </p>
+            )}
           </>
         )}
       </main>

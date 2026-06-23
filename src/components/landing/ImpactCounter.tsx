@@ -1,8 +1,8 @@
 const stats = [
-  { value: "12,788", label: "HS codes with 29 years of US rate history" },
-  { value: "262k", label: "Data points across 1998-2026 USITC tariff records" },
-  { value: "120k+", label: "CBP CROSS rulings used to back HS classifications" },
-  { value: "$180B+", label: "US export value under active retaliatory tariffs in 2024" },
+  { value: "12,788", label: "Products you can simulate, from soybeans to semiconductors" },
+  { value: "29 yrs", label: "Of official US tariff history, going back to 1998" },
+  { value: "25+", label: "Active retaliatory taxes tracked from China, EU, Canada, and India" },
+  { value: "$180B+", label: "US export value sitting under active retaliatory tariffs in 2024" },
 ];
 
 export function ImpactCounter() {

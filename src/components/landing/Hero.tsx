@@ -18,7 +18,7 @@ export function Hero() {
             </h1>
 
             <p className="text-base sm:text-lg text-muted-foreground max-w-xl mb-7 leading-relaxed">
-              For US exporters and importers. TariffLens classifies your product under the HTSUS using GRI rules, pulls 29 years of USITC rate history, cross-checks live retaliation data, and tells you the dollar impact. Takes 30 seconds.
+              Every shipment crossing a border gets taxed. That tax can change overnight. TariffLens tells you the exact dollar cost on your shipment, how that rate has moved over 29 years, and which country to use instead if the number is too high.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2 mb-6">
@@ -43,9 +43,9 @@ export function Hero() {
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> USITC data 1998–2026</span>
-              <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Live retaliation tracking</span>
-              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> GRI classification + CBP rulings</span>
+              <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> US official rate history 1998–2026</span>
+              <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Live retaliation from China, EU, Canada, India</span>
+              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> Auto-classifies your product for customs</span>
             </div>
           </div>
 

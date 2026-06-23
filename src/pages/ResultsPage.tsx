@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   ArrowLeft, TrendingDown, CheckCircle2, AlertTriangle, Lightbulb,
   RefreshCw, Mail, Loader2, TrendingUp, Globe2, Clock, ShieldAlert,
+  FileSearch, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,7 @@ export default function ResultsPage() {
   const result: SimResult | undefined = state?.result;
   const tradeMode: "exporter" | "importer" = state?.input?.tradeMode ?? "exporter";
   const isImporter = tradeMode === "importer";
+  const classification = state?.classification ?? null;
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -173,107 +175,178 @@ export default function ResultsPage() {
             {result.product_name.length > 60 ? result.product_name.substring(0, 60) + "…" : result.product_name}
           </h1>
           <p className="text-muted-foreground text-sm mt-1 break-words">
-            {isImporter ? `From ${result.destination_country} → US` : `→ ${result.destination_country}`} · {fmt(result.shipment_value)} shipment · HS {result.hs_code}
+            {isImporter ? `Importing from ${result.destination_country} into the US` : `Exporting to ${result.destination_country}`} · {fmt(result.shipment_value)} shipment
           </p>
           <div className={`inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${isImporter ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
             {isImporter ? "📦 Import analysis" : "🚢 Export analysis"}
           </div>
         </div>
 
-        {/* Risk score + probability — the headline numbers */}
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Risk score</div>
-            </div>
-            <RiskMeter score={result.risk_score ?? 0} label={result.risk_label ?? "LOW"} />
-            <p className="text-xs text-muted-foreground mt-2">
-              Based on current exposure ({result.effective_rate}%) + 25-year rate volatility
-              {result.volatility_stats?.max_jump_year ? ` + ${result.volatility_stats.max_jump_year} spike` : ""}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                {isImporter ? "Rate escalation probability" : "Retaliation probability"}
+        {/* THE BIG NUMBER — tariff cost, front and center */}
+        <div className={`rounded-xl border p-5 sm:p-6 ${result.tariff_cost_today > 0 ? "border-destructive/30 bg-destructive-soft" : "border-success/30 bg-success-soft"}`}>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                {isImporter ? "Duty you owe at the US border" : "Tariff cost on this shipment"}
+              </div>
+              <div className={`text-4xl sm:text-5xl font-bold font-mono ${result.tariff_cost_today > 0 ? "text-destructive" : "text-success"}`}>
+                {result.tariff_cost_today > 0 ? `-${fmt(result.tariff_cost_today)}` : "No cost"}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1.5">
+                {result.effective_rate}% on {fmt(result.shipment_value)}
+                {result.retaliation_rate > 0 && (
+                  <span className="text-destructive ml-2">· includes {result.retaliation_rate}% retaliatory tax</span>
+                )}
               </div>
             </div>
-            <div className="flex items-end gap-2 mb-1">
-              <div className={`text-4xl font-bold font-mono ${(result.retaliation_probability ?? 0) >= 60 ? "text-destructive" : (result.retaliation_probability ?? 0) >= 30 ? "text-warning" : "text-success"}`}>
-                {result.retaliation_probability ?? 0}%
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Risk score</div>
+              <div className={`text-3xl font-bold font-mono ${(result.risk_score ?? 0) >= 60 ? "text-destructive" : (result.risk_score ?? 0) >= 30 ? "text-warning" : "text-success"}`}>
+                {result.risk_score ?? 0}<span className="text-lg font-normal text-muted-foreground">/100</span>
+              </div>
+              <div className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block mt-1 ${(result.risk_score ?? 0) >= 60 ? "bg-destructive-soft text-destructive" : (result.risk_score ?? 0) >= 30 ? "bg-warning-soft text-warning" : "bg-success-soft text-success"}`}>
+                {result.risk_label ?? "LOW"}
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {isImporter
-                ? result.retaliation_rate > 0
-                  ? "Additional US duties active on this origin — live scraped data"
-                  : "Probability US raises duties on this product based on 29-year history"
-                : result.retaliation_rate > 0
-                  ? "Active retaliation confirmed — live scraped data"
-                  : "Probability of new retaliation based on historical trade war patterns"}
-            </p>
           </div>
+          {result.retaliation_note && (
+            <div className="mt-3 pt-3 border-t border-destructive/10 text-xs text-muted-foreground">
+              {result.retaliation_note}
+            </div>
+          )}
         </div>
 
-        {/* Current tariff breakdown */}
+        {/* Recommendation — moved up because it's the most actionable thing */}
+        {result.recommendation && (
+          <div className="rounded-xl border border-primary/20 bg-primary-soft p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="h-4 w-4 text-primary" />
+              <div className="text-xs uppercase tracking-wider text-primary font-medium">What to do</div>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">{result.recommendation}</p>
+          </div>
+        )}
+
+        {/* FTA savings banner */}
+        {(result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined && (result as any).preferential_saving > 0 && (
+          <div className="rounded-xl border border-success/30 bg-success-soft p-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-success">Free trade agreement rate available</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{(result as any).preferential_note}</div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className="text-lg font-bold text-success font-mono">{(result as any).preferential_rate}%</div>
+              <div className="text-xs text-success font-medium">saves {fmt((result as any).preferential_saving)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Classification card — shows which product code was used and why */}
+        {classification && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+              <FileSearch className="h-3.5 w-3.5 text-muted-foreground" />
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">How we classified this product</div>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="font-mono text-lg font-bold text-foreground">{classification.hts8}</div>
+                <div className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${classification.confidence >= 75 ? "bg-success-soft text-success" : classification.confidence >= 55 ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>
+                  {classification.confidence}% confident
+                </div>
+                <div className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono mt-1">
+                  Rule {classification.gri_rule}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{classification.description}</p>
+              <p className="text-xs text-foreground/70 italic">"{classification.reasoning}"</p>
+              {classification.cbp_ruling?.number && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <ExternalLink className="h-3 w-3 text-primary shrink-0" />
+                  <span className="text-[11px] text-primary">
+                    Backed by CBP Ruling {classification.cbp_ruling.number}
+                    {classification.cbp_ruling.date ? ` (${classification.cbp_ruling.date.substring(0, 4)})` : ""}
+                    {" "} — an official US Customs decision on a similar product
+                  </span>
+                </div>
+              )}
+              {!classification.usitc_validated && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <AlertTriangle className="h-3 w-3 text-warning" />
+                  <span className="text-[11px] text-warning">This code was not found in our US rate database — verify with your customs broker</span>
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-2 bg-muted/20 border-t border-border text-[10px] text-muted-foreground">
+              Classification follows standard international customs rules (WCO General Rules of Interpretation)
+            </div>
+          </div>
+        )}
+
+        {/* Tariff breakdown — the actual numbers */}
         <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
           <div className="px-4 py-3 bg-muted/30 flex items-center justify-between">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Current effective tariff</div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Full tariff breakdown</div>
             {result.data_freshness && (
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                Live data: {new Date(result.data_freshness).toLocaleDateString()}
+                {new Date(result.data_freshness).toLocaleDateString()}
               </div>
             )}
           </div>
           {[
-            { label: "HS Code", value: result.hs_code },
-            { label: "Trade corridor", value: `${(result as any).origin_country || "US"} → ${result.destination_country}` },
-            { label: "MFN duty (WTO 2022)", value: `${result.mfn_rate}%` },
+            { label: "Product code", value: result.hs_code, note: "Used for customs classification" },
+            { label: "Trade route", value: `${(result as any).origin_country || "US"} → ${result.destination_country}` },
+            { label: "Standard rate (what all countries pay)", value: `${result.mfn_rate}%` },
             (result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined
-              ? { label: "Preferential rate (FTA)", value: `${(result as any).preferential_rate}%`, highlight: "success" }
+              ? { label: "Free trade agreement rate", value: `${(result as any).preferential_rate}%`, highlight: "success", note: "If your goods qualify" }
               : null,
-            { label: isImporter ? "Additional US duties (live)" : "Retaliatory tariff (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
-            { label: "Effective rate today", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
-            { label: isImporter ? "Duty you pay on entry (US customs)" : "Tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : "warning" },
-          ].filter(Boolean).map(({ label, value, highlight }: any) => (
-            <div key={label} className="flex justify-between gap-3 px-4 py-2.5 text-sm">
-              <span className="text-muted-foreground">{label}</span>
-              <span className={`font-mono font-medium ${highlight === "destructive" ? "text-destructive" : highlight === "warning" ? "text-warning" : highlight === "success" ? "text-success" : "text-foreground"}`}>
-                {value}
-              </span>
+            { label: isImporter ? "Additional US duties today (live)" : "Retaliatory tax from this country (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None active", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
+            { label: "Effective rate on your shipment", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
+            { label: isImporter ? "Total duty owed at US customs" : "Total tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : result.tariff_cost_today > 0 ? "warning" : "success" },
+          ].filter(Boolean).map(({ label, value, highlight, note }: any) => (
+            <div key={label} className="px-4 py-2.5 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">{label}</span>
+                <span className={`font-mono font-medium ${highlight === "destructive" ? "text-destructive" : highlight === "warning" ? "text-warning" : highlight === "success" ? "text-success" : "text-foreground"}`}>
+                  {value}
+                </span>
+              </div>
+              {note && <div className="text-[10px] text-muted-foreground mt-0.5">{note}</div>}
             </div>
           ))}
-          {result.retaliation_note && (
-            <div className="px-4 py-2.5 text-xs text-muted-foreground bg-muted/20">{result.retaliation_note}</div>
-          )}
-          {(result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined && (result as any).preferential_saving > 0 && (
-            <div className="px-4 py-3 bg-success-soft border-t border-success/20 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-medium text-success">FTA preferential rate available</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{(result as any).preferential_note}</div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-sm font-bold text-success font-mono">{(result as any).preferential_rate}%</div>
-                <div className="text-[11px] text-success">saves {fmt((result as any).preferential_saving)}</div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Rate history sparkline */}
+        {/* Rate history — bigger, more context */}
         {hasHistory && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-              US MFN rate history · 1998–2026 · {result.rate_history.length} data points
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                  Rate history · {result.rate_history[0]?.year}–{result.rate_history[result.rate_history.length - 1]?.year}
+                </div>
+                <div className="text-sm font-medium text-foreground">How this rate has moved over {result.rate_history.length} years</div>
+              </div>
+              {result.volatility_stats && (
+                <div className="flex gap-4 text-right">
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Average</div>
+                    <div className="text-sm font-mono font-medium text-foreground">{(result.volatility_stats.avg_rate * 100).toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Peak</div>
+                    <div className="text-sm font-mono font-bold text-destructive">{(result.volatility_stats.max_rate * 100).toFixed(1)}%</div>
+                  </div>
+                </div>
+              )}
             </div>
             <Sparkline data={result.rate_history} />
             {result.volatility_stats?.max_jump_year && (
-              <div className="mt-2 text-xs text-muted-foreground">
-                Largest spike: <span className="text-destructive font-medium">+{(result.volatility_stats.max_year_jump * 100).toFixed(1)}%</span> in {result.volatility_stats.max_jump_year} · Avg rate: {(result.volatility_stats.avg_rate * 100).toFixed(1)}% · Peak: {(result.volatility_stats.max_rate * 100).toFixed(1)}%
+              <div className="mt-3 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground leading-relaxed">
+                Biggest single-year jump: <span className="text-destructive font-medium">+{(result.volatility_stats.max_year_jump * 100).toFixed(1)} percentage points</span> in {result.volatility_stats.max_jump_year}.
+                {result.effective_rate > 0 && result.effective_rate === result.volatility_stats.max_rate * 100
+                  ? " The rate is currently at its historical peak."
+                  : " The current rate is below the historical peak."}
               </div>
             )}
           </div>
@@ -281,7 +354,7 @@ export default function ResultsPage() {
 
         {/* Scenarios */}
         <div>
-          <h2 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">Scenarios</h2>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">What happens if things change</div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {result.scenarios.map((s) => (
               <div key={s.name} className={`rounded-xl border p-4 ${sevColor(s.severity)}`}>
@@ -302,25 +375,12 @@ export default function ResultsPage() {
         </div>
 
         {/* Alternative markets */}
-        {!hasAltMarkets && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Globe2 className="h-4 w-4 text-muted-foreground" />
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                {isImporter ? "Alternative sourcing countries" : "Alternative markets"}
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              No live retaliation data for this product in other markets yet — our scraper covers products actively tracked in trade war news. Run the simulator on soybeans, beef, bourbon, or steel to see alternative market comparisons.
-            </p>
-          </div>
-        )}
         {hasAltMarkets && (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
               <Globe2 className="h-3.5 w-3.5 text-muted-foreground" />
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                {isImporter ? "Alternative sourcing countries · ranked by US duty rate" : "Alternative markets · ranked by effective rate"}
+                {isImporter ? "Other countries to source from" : "Other countries to sell to"} · ranked by tax rate
               </div>
             </div>
             <div className="divide-y divide-border">
@@ -331,11 +391,11 @@ export default function ResultsPage() {
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {m.retaliation === 0 && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">
-                          {isImporter ? "No added US duties" : "No retaliation"}
+                          {isImporter ? "No extra US duties" : "No retaliatory tax"}
                         </span>
                       )}
                       {(m as any).source === "wto" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">WTO</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">Official rate</span>
                       )}
                       {(m as any).source === "live" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">Live</span>
@@ -356,14 +416,23 @@ export default function ResultsPage() {
                 </div>
               ))}
             </div>
+            <div className="px-4 py-2.5 bg-muted/20 border-t border-border text-[10px] text-muted-foreground">
+              Rates from the WTO official database · retaliation data updated daily
+            </div>
           </div>
         )}
 
-        {/* AI risk summary */}
+        {/* Risk analysis */}
         {result.risk_summary && (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/30">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">AI Risk Analysis · Groq llama-3.3-70b</div>
+            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Risk analysis</div>
+              <div className="flex items-center gap-1.5">
+                <ShieldAlert className="h-3 w-3 text-muted-foreground" />
+                <div className="text-[10px] text-muted-foreground">
+                  {isImporter ? "Probability of rate escalation" : "Retaliation probability"}: <span className={`font-medium ${(result.retaliation_probability ?? 0) >= 60 ? "text-destructive" : (result.retaliation_probability ?? 0) >= 30 ? "text-warning" : "text-success"}`}>{result.retaliation_probability ?? 0}%</span>
+                </div>
+              </div>
             </div>
             <div className="p-4">
               <p className="text-sm text-foreground leading-relaxed">{result.risk_summary}</p>
@@ -376,20 +445,9 @@ export default function ResultsPage() {
           <div className="rounded-xl border border-warning/30 bg-warning-soft p-5">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-4 w-4 text-warning" />
-              <div className="text-xs uppercase tracking-wider text-warning font-medium">6–12 month rate prediction</div>
+              <div className="text-xs uppercase tracking-wider text-warning font-medium">Where rates are likely going · next 6 to 12 months</div>
             </div>
             <p className="text-sm text-foreground leading-relaxed">{result.prediction}</p>
-          </div>
-        )}
-
-        {/* Recommendation */}
-        {result.recommendation && (
-          <div className="rounded-xl border border-primary/20 bg-primary-soft p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Lightbulb className="h-4 w-4 text-primary" />
-              <div className="text-xs uppercase tracking-wider text-primary font-medium">Recommendation</div>
-            </div>
-            <p className="text-sm text-foreground leading-relaxed">{result.recommendation}</p>
           </div>
         )}
 
@@ -399,7 +457,7 @@ export default function ResultsPage() {
             <Mail className="h-4 w-4 text-primary" />
             <div className="text-sm font-medium text-foreground">Email this report</div>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">Get this full simulation sent to your inbox via Composio Gmail.</p>
+          <p className="text-xs text-muted-foreground mb-3">Send the full simulation to your inbox.</p>
           {sent ? (
             <div className="flex items-center gap-2 text-sm text-success">
               <CheckCircle2 className="h-4 w-4" /> Report sent
