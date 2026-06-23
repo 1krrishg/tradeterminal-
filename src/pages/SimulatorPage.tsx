@@ -71,73 +71,282 @@ export default function SimulatorPage() {
 
       // Map everyday terms → USITC language
       const synonyms: Record<string, string[]> = {
+        // Computers & electronics
         laptop: ["automatic data processing", "portable", "computer"],
         laptops: ["automatic data processing", "portable", "computer"],
+        notebook: ["automatic data processing", "portable"],
         computer: ["automatic data processing", "computing"],
         computers: ["automatic data processing"],
+        pc: ["automatic data processing"],
+        desktop: ["automatic data processing"],
+        server: ["automatic data processing", "server"],
+        tablet: ["automatic data processing", "tablet"],
+        ipad: ["automatic data processing", "tablet"],
+        monitor: ["monitor", "display", "visual display"],
+        display: ["monitor", "display"],
+        screen: ["monitor", "display"],
+        printer: ["printer", "printing"],
+        keyboard: ["keyboard"],
+        mouse: ["mouse", "pointing device"],
+        hard: ["disk", "storage", "magnetic"],
+        ssd: ["solid state", "storage"],
+        usb: ["usb", "connector"],
+        cable: ["cable", "insulated"],
+        charger: ["charger", "battery", "transformer"],
+
+        // Phones & comms
         phone: ["telephone", "cellular"],
         phones: ["telephone", "cellular"],
         smartphone: ["telephone", "cellular"],
         smartphones: ["telephone", "cellular"],
         iphone: ["telephone", "cellular"],
-        tv: ["television", "monitor"],
-        television: ["television"],
+        android: ["telephone", "cellular"],
+        mobile: ["telephone", "cellular"],
+        handset: ["telephone", "handset"],
+        microphone: ["microphone"],
+        speaker: ["loudspeaker", "microphone", "sound"],
+        headphones: ["headphone", "earphone", "microphone"],
+        headset: ["headphone", "earphone", "microphone"],
+        earbuds: ["earphone", "headphone"],
+        camera: ["camera", "photographic"],
+        webcam: ["camera", "video"],
+
+        // TVs & home electronics
+        tv: ["television", "monitor", "reception"],
+        television: ["television", "reception"],
+        oled: ["television", "monitor"],
+        lcd: ["television", "monitor", "flat panel"],
+        projector: ["projector", "optical"],
+        router: ["router", "network", "transmission"],
+        modem: ["modem", "transmission"],
+        wifi: ["network", "transmission", "radio"],
+
+        // Vehicles
         car: ["motor vehicle", "passenger"],
         cars: ["motor vehicle", "passenger"],
         automobile: ["motor vehicle", "passenger"],
+        vehicle: ["motor vehicle"],
+        vehicles: ["motor vehicle"],
+        suv: ["motor vehicle", "passenger"],
+        sedan: ["motor vehicle", "passenger"],
+        van: ["motor vehicle", "passenger"],
+        bus: ["bus", "motor vehicle"],
         truck: ["motor vehicle", "truck"],
+        pickup: ["motor vehicle", "truck"],
+        motorcycle: ["motorcycle", "moped"],
+        motorbike: ["motorcycle", "moped"],
+        bike: ["bicycle", "motorcycle"],
+        bicycle: ["bicycle"],
+        scooter: ["motorcycle", "moped", "scooter"],
+        electric: ["electric", "motor"],
+        ev: ["electric vehicle", "motor"],
+        tractor: ["tractor", "agricultural"],
+        engine: ["engine", "motor"],
+        tire: ["tyre", "rubber"],
+        tires: ["tyre", "rubber"],
+        tyre: ["tyre", "rubber"],
+        parts: ["parts", "component"],
+
+        // Clothing & textiles
         shoes: ["footwear"],
         shoe: ["footwear"],
         sneakers: ["footwear", "athletic"],
+        boots: ["footwear", "boot"],
+        sandals: ["footwear", "sandal"],
         shirt: ["apparel", "garment", "knit"],
         shirts: ["apparel", "garment", "knit"],
+        tshirt: ["apparel", "garment", "knit"],
+        jacket: ["apparel", "garment", "outerwear"],
+        coat: ["apparel", "garment", "outerwear"],
+        jeans: ["apparel", "garment", "denim"],
+        pants: ["apparel", "garment", "trouser"],
+        trousers: ["apparel", "garment", "trouser"],
+        dress: ["apparel", "garment", "dress"],
+        suit: ["apparel", "garment", "suit"],
+        hat: ["apparel", "garment", "hat"],
+        gloves: ["apparel", "garment", "glove"],
+        socks: ["apparel", "garment", "hosiery"],
+        underwear: ["apparel", "garment", "underwear"],
         clothes: ["apparel", "garment", "textile"],
         clothing: ["apparel", "garment", "textile"],
-        steel: ["steel", "iron"],
-        aluminum: ["aluminum", "aluminium"],
-        aluminium: ["aluminum", "aluminium"],
+        fabric: ["textile", "fabric", "woven"],
+        cotton: ["cotton"],
+        silk: ["silk"],
+        wool: ["wool"],
+        leather: ["leather"],
+        nylon: ["nylon", "synthetic"],
+        polyester: ["polyester", "synthetic"],
+
+        // Food & agriculture
         soybean: ["soya", "soybean"],
         soybeans: ["soya", "soybean"],
+        soy: ["soya", "soybean"],
         corn: ["maize", "corn"],
-        wheat: ["wheat"],
-        chicken: ["poultry", "fowl"],
+        maize: ["maize", "corn"],
+        wheat: ["wheat", "cereal"],
+        rice: ["rice"],
+        sugar: ["sugar", "cane"],
+        coffee: ["coffee"],
+        cocoa: ["cocoa", "chocolate"],
+        chocolate: ["chocolate", "cocoa"],
+        chicken: ["poultry", "fowl", "chicken"],
+        poultry: ["poultry", "fowl"],
         beef: ["bovine", "beef"],
         pork: ["swine", "pork"],
-        wine: ["wine", "grape"],
-        whiskey: ["spirits", "whisky", "bourbon"],
-        bourbon: ["spirits", "bourbon", "whisky"],
+        fish: ["fish", "seafood"],
+        seafood: ["fish", "seafood", "crustacean"],
+        shrimp: ["shrimp", "crustacean"],
+        lobster: ["lobster", "crustacean"],
+        salmon: ["salmon", "fish"],
+        tuna: ["tuna", "fish"],
+        milk: ["milk", "dairy"],
+        cheese: ["cheese", "dairy"],
+        butter: ["butter", "dairy"],
+        eggs: ["egg", "poultry"],
+        orange: ["orange", "citrus"],
+        apple: ["apple", "fruit"],
+        banana: ["banana", "fruit"],
+        nuts: ["nut", "edible"],
+        peanuts: ["peanut", "groundnut"],
+        soyoil: ["soya oil", "vegetable oil"],
+        oil: ["oil", "vegetable oil"],
+        olive: ["olive", "oil"],
+
+        // Metals & materials
+        steel: ["steel", "iron"],
+        iron: ["iron", "steel"],
+        aluminum: ["aluminum", "aluminium"],
+        aluminium: ["aluminum", "aluminium"],
+        copper: ["copper"],
+        gold: ["gold", "precious metal"],
+        silver: ["silver", "precious metal"],
+        zinc: ["zinc"],
+        nickel: ["nickel"],
+        titanium: ["titanium"],
+        lumber: ["lumber", "wood", "timber"],
+        wood: ["wood", "lumber", "timber"],
+        timber: ["timber", "wood", "lumber"],
+        plywood: ["plywood", "wood"],
+        glass: ["glass"],
+        plastic: ["plastic", "polymer"],
+        rubber: ["rubber"],
+        paper: ["paper", "paperboard"],
+        cardboard: ["cardboard", "paperboard"],
+        cement: ["cement"],
+        concrete: ["concrete", "cement"],
+
+        // Energy & chemicals
+        oil: ["petroleum", "crude oil"],
+        petroleum: ["petroleum", "crude oil"],
+        gas: ["gas", "petroleum"],
+        lng: ["liquefied natural gas", "petroleum"],
+        coal: ["coal"],
+        solar: ["photovoltaic", "solar"],
+        panel: ["photovoltaic", "panel"],
+        battery: ["battery", "accumulator"],
+        batteries: ["battery", "accumulator"],
+        fertilizer: ["fertilizer", "fertiliser"],
+        chemical: ["chemical"],
+        paint: ["paint", "varnish"],
+        plastic: ["plastic", "polymer", "resin"],
+
+        // Pharma & medical
         medicine: ["pharmaceutical", "medicament"],
         drug: ["pharmaceutical", "medicament"],
         drugs: ["pharmaceutical", "medicament"],
-        solar: ["photovoltaic", "solar"],
-        battery: ["battery", "accumulator"],
-        batteries: ["battery", "accumulator"],
+        vaccine: ["vaccine", "pharmaceutical"],
+        medical: ["medical", "surgical", "pharmaceutical"],
+        device: ["medical", "apparatus", "instrument"],
+        syringe: ["syringe", "medical"],
+        mask: ["mask", "protective"],
+        glove: ["glove", "protective"],
+
+        // Semiconductors & tech components
+        semiconductor: ["semiconductor", "integrated circuit"],
+        chip: ["semiconductor", "integrated circuit"],
+        chips: ["semiconductor", "integrated circuit"],
+        microchip: ["semiconductor", "integrated circuit"],
+        transistor: ["transistor", "semiconductor"],
+        diode: ["diode", "semiconductor"],
+        circuit: ["integrated circuit", "semiconductor"],
+        processor: ["processor", "integrated circuit"],
+        memory: ["memory", "integrated circuit"],
+        ram: ["memory", "integrated circuit"],
+
+        // Aircraft & maritime
+        aircraft: ["aircraft", "airplane"],
+        airplane: ["aircraft", "airplane"],
+        helicopter: ["helicopter", "aircraft"],
+        drone: ["drone", "aircraft", "unmanned"],
+        boat: ["vessel", "boat"],
+        ship: ["vessel", "ship"],
+        yacht: ["vessel", "yacht"],
+        container: ["container", "vessel"],
+
+        // Furniture & home
         furniture: ["furniture", "seat"],
+        sofa: ["sofa", "seat", "furniture"],
+        chair: ["chair", "seat", "furniture"],
+        table: ["table", "furniture"],
+        bed: ["bed", "furniture"],
+        mattress: ["mattress", "furniture"],
+        lamp: ["lamp", "lighting"],
+        appliance: ["appliance", "machine"],
+        refrigerator: ["refrigerator", "cooling"],
+        fridge: ["refrigerator", "cooling"],
+        washing: ["washing machine", "laundry"],
+        dishwasher: ["dishwasher", "machine"],
+        oven: ["oven", "cooking"],
+        microwave: ["microwave", "cooking"],
+        aircon: ["air conditioner", "cooling"],
+        ac: ["air conditioner", "cooling"],
+        vacuum: ["vacuum cleaner"],
+
+        // Watches & luxury
         watch: ["watch", "timepiece"],
         watches: ["watch", "timepiece"],
         jewelry: ["jewelry", "jewellery", "precious"],
         jewellery: ["jewelry", "jewellery"],
-        semiconductor: ["semiconductor", "integrated circuit"],
-        chip: ["semiconductor", "integrated circuit"],
-        chips: ["semiconductor", "integrated circuit"],
-        aircraft: ["aircraft", "airplane"],
-        airplane: ["aircraft"],
-        boat: ["vessel", "boat"],
-        ship: ["vessel", "ship"],
+        diamond: ["diamond", "precious stone"],
+        perfume: ["perfume", "cosmetic"],
+        cosmetics: ["cosmetic", "beauty"],
+        makeup: ["cosmetic", "beauty"],
+
+        // Toys & sports
+        toy: ["toy", "game"],
+        toys: ["toy", "game"],
+        game: ["game", "toy"],
+        console: ["game console", "video game"],
+        playstation: ["game console"],
+        xbox: ["game console"],
+        bicycle: ["bicycle"],
+        golf: ["golf", "sporting"],
+        sports: ["sporting", "sport"],
+        gym: ["sporting", "exercise"],
       };
 
       const lower = q.toLowerCase().trim();
+      // Exact match first, then try each individual word in a multi-word query
       const mapped = synonyms[lower];
-      const terms = mapped ?? [q];
+      let terms: string[];
+      if (mapped) {
+        terms = mapped;
+      } else {
+        // Try each word individually against the synonym map, collect all hits
+        const words = lower.split(/\s+/);
+        const wordMapped = words.flatMap(w => synonyms[w] ?? []);
+        // If any word matched, use those terms + the original query
+        terms = wordMapped.length > 0 ? [...new Set([q, ...wordMapped])] : [q];
+      }
 
       // Run searches for each term in parallel, deduplicate by hts8
       const results = await Promise.all(
-        terms.slice(0, 3).map(t =>
+        terms.slice(0, 4).map(t =>
           supabase
             .from("hts_catalog")
             .select("hts8, description, mfn_rate")
             .ilike("description", `%${t}%`)
-            .limit(6)
+            .limit(8)
         )
       );
 
