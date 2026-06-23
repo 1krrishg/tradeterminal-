@@ -242,7 +242,7 @@ export default function SimulatorPage() {
         nuts: ["nut", "edible"],
         peanuts: ["peanut", "groundnut"],
         soyoil: ["soya oil", "vegetable oil"],
-        oil: ["oil", "vegetable oil"],
+        oil: ["oil", "vegetable oil", "petroleum", "crude oil"],
         olive: ["olive", "oil"],
 
         // Metals & materials
@@ -261,7 +261,7 @@ export default function SimulatorPage() {
         timber: ["timber", "wood", "lumber"],
         plywood: ["plywood", "wood"],
         glass: ["glass"],
-        plastic: ["plastic", "polymer"],
+        plastic: ["plastic", "polymer", "resin"],
         rubber: ["rubber"],
         paper: ["paper", "paperboard"],
         cardboard: ["cardboard", "paperboard"],
@@ -269,7 +269,6 @@ export default function SimulatorPage() {
         concrete: ["concrete", "cement"],
 
         // Energy & chemicals
-        oil: ["petroleum", "crude oil"],
         petroleum: ["petroleum", "crude oil"],
         gas: ["gas", "petroleum"],
         lng: ["liquefied natural gas", "petroleum"],
@@ -281,7 +280,6 @@ export default function SimulatorPage() {
         fertilizer: ["fertilizer", "fertiliser"],
         chemical: ["chemical"],
         paint: ["paint", "varnish"],
-        plastic: ["plastic", "polymer", "resin"],
 
         // Pharma & medical
         medicine: ["pharmaceutical", "medicament"],
@@ -352,7 +350,6 @@ export default function SimulatorPage() {
         console: ["game console", "video game"],
         playstation: ["game console"],
         xbox: ["game console"],
-        bicycle: ["bicycle"],
         golf: ["golf", "sporting"],
         sports: ["sporting", "sport"],
         gym: ["sporting", "exercise"],

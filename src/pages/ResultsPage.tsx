@@ -331,11 +331,11 @@ export default function ResultsPage() {
                 <div className="flex gap-4 text-right">
                   <div>
                     <div className="text-[10px] text-muted-foreground">Average</div>
-                    <div className="text-sm font-mono font-medium text-foreground">{(result.volatility_stats.avg_rate * 100).toFixed(1)}%</div>
+                    <div className="text-sm font-mono font-medium text-foreground">{result.volatility_stats.avg_rate.toFixed(1)}%</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-muted-foreground">Peak</div>
-                    <div className="text-sm font-mono font-bold text-destructive">{(result.volatility_stats.max_rate * 100).toFixed(1)}%</div>
+                    <div className="text-sm font-mono font-bold text-destructive">{result.volatility_stats.max_rate.toFixed(1)}%</div>
                   </div>
                 </div>
               )}
@@ -343,8 +343,8 @@ export default function ResultsPage() {
             <Sparkline data={result.rate_history} />
             <div className="mt-3 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground leading-relaxed">
               {result.volatility_stats?.max_jump_year
-                ? <>Biggest single-year jump: <span className="text-destructive font-medium">+{(result.volatility_stats.max_year_jump * 100).toFixed(1)} percentage points</span> in {result.volatility_stats.max_jump_year}.
-                  {result.effective_rate > 0 && result.volatility_stats.max_rate && result.effective_rate >= result.volatility_stats.max_rate * 100 - 1
+                ? <>Biggest single-year jump: <span className="text-destructive font-medium">+{result.volatility_stats.max_year_jump.toFixed(1)} percentage points</span> in {result.volatility_stats.max_jump_year}.
+                  {result.effective_rate > 0 && result.volatility_stats.max_rate && result.effective_rate >= result.volatility_stats.max_rate - 1
                     ? " The rate is currently at its historical peak."
                     : " The current rate is below the historical peak."}</>
                 : result.rate_history.every(r => r.rate === 0)
