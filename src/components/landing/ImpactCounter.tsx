@@ -1,8 +1,8 @@
 const stats = [
-  { value: "12,788", label: "HS codes with 29 years of rate history in our database" },
-  { value: "262k", label: "Data points across 1998–2026 USITC tariff records" },
-  { value: "$180B+", label: "US export value hit by active retaliatory tariffs in 2024" },
-  { value: "30s", label: "From shipment details to full risk simulation with prediction" },
+  { value: "12,788", label: "HS codes with 29 years of US rate history" },
+  { value: "262k", label: "Data points across 1998-2026 USITC tariff records" },
+  { value: "120k+", label: "CBP CROSS rulings used to back HS classifications" },
+  { value: "$180B+", label: "US export value under active retaliatory tariffs in 2024" },
 ];
 
 export function ImpactCounter() {

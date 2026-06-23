@@ -14,7 +14,7 @@ export function FinalCTA() {
           Your next shipment is at risk.<br className="hidden sm:block" /> Find out before you commit.
         </h2>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-8">
-          Search any of 12,788 products. Upload your invoice. Get a risk score, 29-year rate trend, dollar impact, and one clear recommendation.
+          Describe your product, upload your invoice, or paste an HS code. You get a GRI classification with a CBP ruling citation, 29-year rate history, live retaliation data, and the dollar cost on your shipment.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 text-base font-medium">

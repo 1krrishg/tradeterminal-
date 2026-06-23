@@ -14,11 +14,11 @@ export function Hero() {
             </div>
 
             <h1 className="text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.05] font-semibold tracking-tight text-foreground mb-5">
-              Know the tariff hit before you ship — or buy.
+              Know the tariff hit before you ship. Or buy.
             </h1>
 
             <p className="text-base sm:text-lg text-muted-foreground max-w-xl mb-7 leading-relaxed">
-              For US exporters and importers. TariffLens combines 29 years of official USITC rate history with live-scraped tariff data to simulate your exact dollar exposure, predict rate changes, and find you a better market or supplier.
+              For US exporters and importers. TariffLens classifies your product under the HTSUS using GRI rules, pulls 29 years of USITC rate history, cross-checks live retaliation data, and tells you the dollar impact. Takes 30 seconds.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2 mb-6">
@@ -45,7 +45,7 @@ export function Hero() {
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> USITC data 1998–2026</span>
               <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-destructive" /> Live retaliation tracking</span>
-              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> 16+ destination markets</span>
+              <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-primary" /> GRI classification + CBP rulings</span>
             </div>
           </div>
 
