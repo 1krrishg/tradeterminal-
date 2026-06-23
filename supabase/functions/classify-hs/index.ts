@@ -143,10 +143,13 @@ Key rules you must follow:
 - Finished electrical/electronic goods go in Section XVI or XVII — not Section XV (metals).
 - Textiles: classify by chief weight of fiber.
 - Food: classify by preparation method and ingredient.
-- All 3 candidates MUST be plausible for the described product. Never suggest a completely unrelated product (e.g. do NOT suggest iron/steel for a food product, or electronics for agricultural goods). If only 1 or 2 plausible headings exist, repeat the best one with a slightly different subheading, but NEVER fabricate an unrelated heading.
-- Confidence for candidates 2 and 3 must reflect genuine ambiguity — if classification is clear under GRI 1, candidates 2 and 3 should have confidence below 40.
+- All candidates MUST be genuinely different HS codes. Never return the same 8-digit code more than once.
+- All candidates must be plausible for the described product. Never suggest a completely unrelated chapter (e.g. do NOT suggest iron/steel for a food product, or electronics for agricultural goods).
+- If only one heading clearly fits, provide 2 candidates: the correct one plus the closest alternative (even if from the same chapter, it must have a different 8-digit code). Do NOT return a third duplicate just to reach 3.
+- If the product could plausibly fall under multiple headings, list up to 3 distinct codes.
+- Confidence for candidates 2 and 3 must reflect genuine ambiguity — if GRI 1 is clear, candidates 2 and 3 should be below 40.
 
-Return a JSON array of exactly 3 candidates, ranked by confidence (highest first). Each candidate:
+Return a JSON array of 2 or 3 candidates (never fewer than 2, never more than 3), ranked by confidence. All hts8 codes must be unique. Each candidate:
 {
   "hts8": "8-digit HTSUS code, no dots",
   "heading": "4-digit heading number",
@@ -235,10 +238,17 @@ Return ONLY the JSON array. No markdown, no explanation.`,
       })
     );
 
-    // Sort by final confidence descending
-    enriched.sort((a, b) => b.confidence - a.confidence);
+    // Deduplicate by hts8 — keep highest-confidence entry for each code
+    const seenCodes = new Set<string>();
+    const deduped = enriched
+      .sort((a, b) => b.confidence - a.confidence)
+      .filter(c => {
+        if (seenCodes.has(c.hts8)) return false;
+        seenCodes.add(c.hts8);
+        return true;
+      });
 
-    return new Response(JSON.stringify({ candidates: enriched }), {
+    return new Response(JSON.stringify({ candidates: deduped }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
