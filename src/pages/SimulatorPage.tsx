@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, X, Loader2, ArrowRight, Globe, Package, DollarSign, Search } from "lucide-react";
+import { Upload, FileText, X, Loader2, ArrowRight, Globe, Package, DollarSign, Search, CheckCircle2, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,26 @@ const COUNTRIES = [
 type Mode = "document" | "manual";
 type TradeMode = "exporter" | "importer";
 type HtsResult = { hts8: string; description: string; mfn_rate: number };
+
+interface CbpRuling {
+  number: string | null;
+  subject: string | null;
+  date: string | null;
+  hs_match: boolean;
+}
+
+interface ClassificationCandidate {
+  hts8: string;
+  heading: string;
+  description: string;
+  gri_rule: string;
+  reasoning: string;
+  confidence: number;
+  disqualified: string;
+  mfn_rate: number | null;
+  usitc_validated: boolean;
+  cbp_ruling: CbpRuling | null;
+}
 
 export default function SimulatorPage() {
   const { toast } = useToast();
@@ -47,6 +67,13 @@ export default function SimulatorPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  // Classification state
+  const [classifying, setClassifying] = useState(false);
+  const [candidates, setCandidates] = useState<ClassificationCandidate[]>([]);
+  const [showClassification, setShowClassification] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<ClassificationCandidate | null>(null);
+  const [showDisqualified, setShowDisqualified] = useState(false);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -381,6 +408,9 @@ export default function SimulatorPage() {
     setProductQuery(val);
     setHsCode("");
     setProductName("");
+    setSelectedCandidate(null);
+    setCandidates([]);
+    setShowClassification(false);
     clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => searchProducts(val), 300);
   };
@@ -390,6 +420,46 @@ export default function SimulatorPage() {
     setProductName(r.description);
     setProductQuery(`${r.description} (HS ${r.hts8})`);
     setShowDropdown(false);
+    setCandidates([]);
+    setShowClassification(false);
+    setSelectedCandidate(null);
+  };
+
+  const selectCandidate = (c: ClassificationCandidate) => {
+    setSelectedCandidate(c);
+    setHsCode(c.hts8);
+    setProductName(c.description);
+    setShowClassification(false);
+  };
+
+  const runClassification = async () => {
+    if (!productQuery.trim() || productQuery.length < 3) {
+      toast({ title: "Describe the product first", description: "Type what the product is, then click Classify.", variant: "destructive" });
+      return;
+    }
+    setClassifying(true);
+    setShowDropdown(false);
+    setCandidates([]);
+    setShowClassification(false);
+    setSelectedCandidate(null);
+    setHsCode("");
+    setProductName("");
+    try {
+      const { data, error } = await supabase.functions.invoke("classify-hs", {
+        body: { description: productQuery },
+      });
+      if (error) throw error;
+      const list: ClassificationCandidate[] = data?.candidates ?? [];
+      if (list.length === 0) throw new Error("No candidates returned");
+      setCandidates(list);
+      setShowClassification(true);
+      // Auto-select the top candidate
+      selectCandidate(list[0]);
+    } catch {
+      toast({ title: "Classification failed", description: "Try a more specific product description.", variant: "destructive" });
+    } finally {
+      setClassifying(false);
+    }
   };
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
@@ -604,24 +674,39 @@ export default function SimulatorPage() {
         {mode === "manual" && (
           <div className="space-y-5 mb-6">
 
-            {/* Product search */}
+            {/* Product search + classification */}
             <div>
               <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-2">
                 <Package className="h-4 w-4 text-primary" /> Product
               </Label>
+
+              {/* Search input + action buttons */}
               <div ref={searchRef} className="relative">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search 12,788 products or paste HS code…"
-                    value={productQuery}
-                    onChange={(e) => handleProductInput(e.target.value)}
-                    onFocus={() => productQuery.length >= 2 && setShowDropdown(true)}
-                    className="pl-9"
-                  />
-                  {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Describe product or paste HS code…"
+                      value={productQuery}
+                      onChange={(e) => handleProductInput(e.target.value)}
+                      onFocus={() => productQuery.length >= 2 && setShowDropdown(true)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { setShowDropdown(false); runClassification(); } }}
+                      className="pl-9"
+                    />
+                    {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={runClassification}
+                    disabled={classifying || productQuery.trim().length < 3}
+                    className="shrink-0 text-xs px-3 border-primary/30 text-primary hover:bg-primary/5"
+                  >
+                    {classifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Classify →"}
+                  </Button>
                 </div>
 
+                {/* Quick search dropdown (HS code lookup or keyword) */}
                 {showDropdown && searchResults.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden max-h-60 overflow-y-auto">
                     {searchResults.map((r) => (
@@ -644,15 +729,151 @@ export default function SimulatorPage() {
 
                 {showDropdown && !searching && searchResults.length === 0 && productQuery.length >= 2 && (
                   <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-card shadow-lg p-3 text-sm text-muted-foreground">
-                    No products found. Try a different keyword or paste the HS code directly.
+                    No quick matches — click <strong>Classify →</strong> for GRI analysis.
                   </div>
                 )}
               </div>
 
-              {hsCode && (
-                <div className="mt-1.5 flex items-center gap-2 text-xs text-success">
-                  <div className="h-1.5 w-1.5 rounded-full bg-success" />
-                  HS {hsCode} selected · from USITC 2026 database
+              {/* Classification loading state */}
+              {classifying && (
+                <div className="mt-3 rounded-xl border border-border bg-muted/20 p-4 flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium text-foreground">Classifying under HTSUS…</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Applying GRI rules · checking CBP rulings · validating in USITC</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Classification card */}
+              {!classifying && candidates.length > 0 && (
+                <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-border bg-muted/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">HS Classification · GRI Analysis</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                        {candidates.length} candidates
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowClassification(!showClassification)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {showClassification ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+
+                  {showClassification && (
+                    <div className="divide-y divide-border">
+                      {candidates.map((c, i) => {
+                        const isSelected = selectedCandidate?.hts8 === c.hts8;
+                        const confColor = c.confidence >= 75 ? "text-success" : c.confidence >= 55 ? "text-warning" : "text-muted-foreground";
+                        const confBg = c.confidence >= 75 ? "bg-success" : c.confidence >= 55 ? "bg-warning" : "bg-muted-foreground";
+                        return (
+                          <button
+                            key={c.hts8}
+                            onClick={() => selectCandidate(c)}
+                            className={`w-full text-left px-4 py-3 transition-colors ${isSelected ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Radio indicator */}
+                              <div className={`mt-0.5 shrink-0 h-4 w-4 rounded-full border-2 flex items-center justify-center ${isSelected ? "border-primary" : "border-muted-foreground/40"}`}>
+                                {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono text-sm font-bold text-foreground">{c.hts8}</span>
+                                  <span className={`text-xs font-semibold ${confColor}`}>{c.confidence}%</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">GRI {c.gri_rule}</span>
+                                  {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Recommended</span>}
+                                </div>
+
+                                {/* Confidence bar */}
+                                <div className="mt-1.5 h-1 w-full bg-muted rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${confBg}`} style={{ width: `${c.confidence}%` }} />
+                                </div>
+
+                                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">{c.description}</p>
+                                <p className="text-xs text-foreground/70 mt-1 italic">"{c.reasoning}"</p>
+
+                                {/* CBP ruling citation */}
+                                {c.cbp_ruling?.number && (
+                                  <div className="mt-1.5 flex items-center gap-1.5">
+                                    <ExternalLink className="h-3 w-3 text-primary shrink-0" />
+                                    <span className="text-[10px] text-primary">
+                                      CBP Ruling {c.cbp_ruling.number}
+                                      {c.cbp_ruling.date ? ` (${c.cbp_ruling.date.substring(0, 4)})` : ""}
+                                      {c.cbp_ruling.hs_match ? " · HS match ✓" : ""}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* USITC validation badge */}
+                                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                                  {c.usitc_validated ? (
+                                    <span className="text-[10px] text-success flex items-center gap-1">
+                                      <CheckCircle2 className="h-3 w-3" /> USITC validated
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-warning flex items-center gap-1">
+                                      <AlertCircle className="h-3 w-3" /> Not in USITC DB
+                                    </span>
+                                  )}
+                                  {c.mfn_rate !== null && c.mfn_rate > 0 && (
+                                    <span className="text-[10px] text-muted-foreground">· US MFN: {(c.mfn_rate * 100).toFixed(1)}%</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Disqualified headings toggle */}
+                  {selectedCandidate?.disqualified && selectedCandidate.disqualified.length > 5 && (
+                    <div className="border-t border-border">
+                      <button
+                        onClick={() => setShowDisqualified(!showDisqualified)}
+                        className="w-full px-4 py-2 text-left text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      >
+                        {showDisqualified ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        Headings considered and rejected
+                      </button>
+                      {showDisqualified && (
+                        <div className="px-4 pb-3 text-[10px] text-muted-foreground leading-relaxed">
+                          {selectedCandidate.disqualified}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Audit trail footer */}
+                  <div className="px-4 py-2 bg-muted/20 border-t border-border text-[10px] text-muted-foreground">
+                    Classification basis: WCO GRI · USITC HTSUS 2026 · CBP CROSS rulings database
+                  </div>
+                </div>
+              )}
+
+              {/* Selected code confirmation */}
+              {hsCode && !showClassification && (
+                <div className="mt-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-success">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    HS {hsCode} selected
+                    {selectedCandidate && <span className="text-muted-foreground">· {selectedCandidate.confidence}% confidence · GRI {selectedCandidate.gri_rule}</span>}
+                    {!selectedCandidate && <span className="text-muted-foreground">· USITC 2026</span>}
+                  </div>
+                  {candidates.length > 0 && (
+                    <button
+                      onClick={() => setShowClassification(true)}
+                      className="text-[10px] text-primary underline underline-offset-2"
+                    >
+                      Change
+                    </button>
+                  )}
                 </div>
               )}
             </div>
