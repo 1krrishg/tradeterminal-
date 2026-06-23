@@ -33,6 +33,11 @@ export default function SimulatorPage() {
   const [productName, setProductName] = useState("");
   const [destination, setDestination] = useState("");
   const [shipmentValue, setShipmentValue] = useState("");
+  const [incoterms, setIncoterms] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [exporterName, setExporterName] = useState("");
+  const [importerName, setImporterName] = useState("");
+  const [extractedPreview, setExtractedPreview] = useState<Record<string, string> | null>(null);
 
   // Product search state
   const [productQuery, setProductQuery] = useState("");
@@ -414,15 +419,39 @@ export default function SimulatorPage() {
         body: { file_base64: base64, file_name: file.name, file_type: file.type },
       });
       if (error) throw error;
+
+      // Populate form fields
       if (data.hs_code) {
         setHsCode(data.hs_code);
         setProductQuery(data.product_name ? `${data.product_name} (HS ${data.hs_code})` : `HS ${data.hs_code}`);
       }
       if (data.product_name) setProductName(data.product_name);
+      // For importers, origin_country = their trading partner; for exporters, destination_country
       if (data.destination_country) setDestination(data.destination_country);
+      if (data.origin_country && !data.destination_country) setDestination(data.origin_country);
       if (data.shipment_value) setShipmentValue(String(data.shipment_value));
+      if (data.incoterms) setIncoterms(data.incoterms);
+      if (data.quantity) setQuantity(data.quantity);
+      if (data.exporter_name) setExporterName(data.exporter_name);
+      if (data.importer_name) setImporterName(data.importer_name);
+
+      // Build preview card showing everything extracted
+      const preview: Record<string, string> = {};
+      if (data.product_name) preview["Product"] = data.product_name;
+      if (data.hs_code) preview["HS Code"] = data.hs_code;
+      if (data.origin_country) preview["Origin"] = data.origin_country;
+      if (data.destination_country) preview["Destination"] = data.destination_country;
+      if (data.shipment_value) preview["Value"] = `$${Number(data.shipment_value).toLocaleString()}${data.currency && data.currency !== "USD" ? ` (${data.currency})` : ""}`;
+      if (data.incoterms) preview["Incoterms"] = data.incoterms;
+      if (data.quantity) preview["Quantity"] = data.quantity;
+      if (data.exporter_name) preview["Exporter"] = data.exporter_name;
+      if (data.importer_name) preview["Importer"] = data.importer_name;
+      if (data.notes) preview["Notes"] = data.notes;
+      setExtractedPreview(Object.keys(preview).length > 0 ? preview : null);
+
       setMode("manual");
-      toast({ title: "Document read", description: "Review the extracted fields and simulate." });
+      const fieldCount = Object.keys(preview).length;
+      toast({ title: `Document read — ${fieldCount} fields extracted`, description: "Review and simulate." });
     } catch {
       toast({ title: "Extraction failed", description: "Could not read the document. Fill in manually.", variant: "destructive" });
       setMode("manual");
@@ -444,7 +473,7 @@ export default function SimulatorPage() {
     setSimulating(true);
     try {
       const { data, error } = await supabase.functions.invoke("simulate-tariff", {
-        body: { hs_code: hsCode, destination_country: destination, shipment_value: value, product_name: productName, trade_mode: tradeMode },
+        body: { hs_code: hsCode, destination_country: destination, shipment_value: value, product_name: productName, trade_mode: tradeMode, incoterms: incoterms || undefined, quantity: quantity || undefined },
       });
       if (error) throw error;
       navigate("/results", { state: { result: data, input: { hsCode, productName, destination, shipmentValue: value, tradeMode } } });
@@ -543,6 +572,32 @@ export default function SimulatorPage() {
           </div>
         )}
 
+        {/* Extracted document preview */}
+        {mode === "manual" && extractedPreview && (
+          <div className="mb-5 rounded-xl border border-primary/20 bg-primary-soft overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-primary/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary">Extracted from document</span>
+              </div>
+              <button onClick={() => setExtractedPreview(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="divide-y divide-primary/10">
+              {Object.entries(extractedPreview).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3 px-4 py-2 text-xs">
+                  <span className="text-muted-foreground">{k}</span>
+                  <span className="font-medium text-foreground text-right max-w-[60%] truncate">{v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-2 text-[10px] text-muted-foreground bg-primary/5">
+              Fields pre-filled below — review and adjust before simulating
+            </div>
+          </div>
+        )}
+
         {/* Manual form */}
         {mode === "manual" && (
           <div className="space-y-5 mb-6">
@@ -629,6 +684,35 @@ export default function SimulatorPage() {
                 onChange={(e) => setShipmentValue(e.target.value)}
                 className="font-mono"
               />
+            </div>
+
+            {/* Incoterms + Quantity — optional, shown collapsed */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Incoterms <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                </Label>
+                <Select value={incoterms} onValueChange={setIncoterms}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="e.g. FOB" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["FOB", "CIF", "DDP", "EXW", "DAP", "CFR", "FCA", "CPT", "CIP", "DAT"].map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Quantity <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                </Label>
+                <Input
+                  placeholder="e.g. 100 units"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         )}

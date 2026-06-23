@@ -90,7 +90,7 @@ serve(async (req) => {
   }
 
   try {
-    const { hs_code, destination_country, shipment_value, product_name, trade_mode } = await req.json();
+    const { hs_code, destination_country, shipment_value, product_name, trade_mode, incoterms, quantity } = await req.json();
     const isImporter = trade_mode === "importer";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -318,7 +318,7 @@ serve(async (req) => {
     const context = `
 Product: ${resolved_product} (HS ${hs_code})
 Destination: ${destination_country}
-Shipment value: $${shipment_value.toLocaleString()}
+Shipment value: $${shipment_value.toLocaleString()}${incoterms ? `\nIncoterms: ${incoterms}` : ""}${quantity ? `\nQuantity: ${quantity}` : ""}
 MFN duty (USITC 2026): ${(mfn_rate)}%
 Retaliatory tariff (live scraped): ${retaliation_rate > 0 ? `${retaliation_rate}%` : "None"} ${retaliation_note ? `— ${retaliation_note}` : ""}
 Effective rate today: ${effective_rate}%

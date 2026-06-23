@@ -33,17 +33,21 @@ serve(async (req) => {
             },
             {
               type: "text",
-              text: `You are a trade document parser. Extract the following fields from this trade document (invoice, packing list, bill of lading, etc.) and return ONLY valid JSON with these exact keys:
+              text: `You are a trade document parser. Extract the following fields from this trade document (commercial invoice, packing list, bill of lading, airway bill, etc.) and return ONLY valid JSON with these exact keys:
 {
-  "product_name": "string — the main product being shipped",
-  "hs_code": "string — HS/HTS code (4-6 digit, numbers only, no dots). Use your knowledge if implied but not explicit.",
-  "destination_country": "string — destination country full name (e.g. China, Germany, Canada)",
-  "shipment_value": number — total value in USD (convert if needed, use 0 if not found),
-  "currency": "string — original currency if not USD",
-  "exporter_name": "string — exporting company name",
-  "notes": "string — any tariff-relevant notes"
+  "product_name": "string — the main product/goods being shipped, be specific",
+  "hs_code": "string — HS/HTS code digits only, no dots (e.g. '847130'). Infer from product if not explicit.",
+  "origin_country": "string — country where goods were manufactured or shipped FROM (e.g. United States, China). Look for 'country of origin', 'shipper', 'port of loading', 'made in'.",
+  "destination_country": "string — country the goods are going TO. Look for 'consignee', 'ship to', 'port of discharge', 'buyer'.",
+  "shipment_value": "number — total invoice value in USD. Convert from other currencies using approximate rate if needed. Return 0 if not found.",
+  "currency": "string — original currency code if not USD (e.g. EUR, GBP, CNY)",
+  "incoterms": "string — shipping terms (e.g. FOB, CIF, DDP, EXW, DAP). Return empty string if not found.",
+  "quantity": "string — number of units and unit type (e.g. '100 cartons', '500 kg', '12 pallets')",
+  "exporter_name": "string — name of the exporting/selling company",
+  "importer_name": "string — name of the importing/buying company",
+  "notes": "string — any other tariff-relevant information (special duties mentioned, free trade agreement reference, bonded warehouse, etc.)"
 }
-Return ONLY the JSON object. No explanation.`,
+Return ONLY the JSON object. No markdown, no explanation.`,
             },
           ],
         },
@@ -53,15 +57,19 @@ Return ONLY the JSON object. No explanation.`,
       messages = [
         {
           role: "user",
-          content: `You are a trade document parser. The following is a base64-encoded PDF trade document.
+          content: `You are a trade document parser. The following is a base64-encoded PDF trade document (commercial invoice, bill of lading, packing list, airway bill, etc.).
 Extract the key shipment fields and return ONLY valid JSON:
 {
-  "product_name": "string",
-  "hs_code": "string — 4-6 digit HS code, numbers only",
-  "destination_country": "string — full country name",
-  "shipment_value": number,
-  "currency": "string",
-  "exporter_name": "string",
+  "product_name": "string — main product being shipped",
+  "hs_code": "string — HS/HTS code digits only, no dots. Infer from product if not explicit.",
+  "origin_country": "string — country goods were manufactured or shipped FROM",
+  "destination_country": "string — country goods are going TO",
+  "shipment_value": number — total value in USD (convert if needed),
+  "currency": "string — original currency if not USD",
+  "incoterms": "string — shipping terms (FOB, CIF, DDP, EXW, etc.) or empty string",
+  "quantity": "string — number of units/weight",
+  "exporter_name": "string — selling/shipping company",
+  "importer_name": "string — buying/receiving company",
   "notes": "string"
 }
 Document (base64): ${base64Data.substring(0, 2000)}...
