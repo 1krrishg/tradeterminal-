@@ -345,7 +345,7 @@ export default function ResultsPage() {
           {[
             { label: "Product code", value: result.hs_code, note: "Used for customs classification" },
             { label: "Trade route", value: `${result.origin_country || "Origin"} → ${result.destination_country}` },
-            { label: `${result.destination_country} MFN rate (all origins)`, value: `${result.mfn_rate}%`, note: "WTO bound rate — what this country charges every trading partner" },
+            { label: `${result.destination_country} MFN rate (all origins)`, value: result.mfn_rate !== null && result.mfn_rate !== undefined ? `${result.mfn_rate}%` : "N/A", note: "WTO bound rate — what this country charges every trading partner" },
             result.preferential_rate !== null && result.preferential_rate !== undefined
               ? { label: "FTA preferential rate", value: `${result.preferential_rate}%`, highlight: "success", note: result.preferential_note ?? "If your goods qualify under the agreement" }
               : null,
@@ -353,7 +353,7 @@ export default function ResultsPage() {
             result.origin_specific_rate > 0
               ? { label: `Origin-specific duty (${result.origin_country} → ${result.destination_country})`, value: `+${result.origin_specific_rate}%`, highlight: "destructive", note: result.origin_specific_note ?? "Applies to your origin country only" }
               : null,
-            { label: "Effective rate on your shipment", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
+            { label: "Effective rate on your shipment", value: result.effective_rate !== null && result.effective_rate !== undefined ? `${result.effective_rate}%` : "N/A", highlight: (result.effective_rate ?? 0) >= 20 ? "destructive" : (result.effective_rate ?? 0) > 0 ? "warning" : "success" },
             { label: isImporter ? `Total duty owed at ${result.destination_country} customs` : "Total tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : result.tariff_cost_today > 0 ? "warning" : "success" },
           ].filter(Boolean).map(({ label, value, highlight, note }: any) => (
             <div key={label} className="px-4 py-2.5 text-sm">
@@ -374,9 +374,9 @@ export default function ResultsPage() {
             <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
               <div>
                 <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-                  US rate history · {result.rate_history[0]?.year}–{result.rate_history[result.rate_history.length - 1]?.year}
+                  {result.destination_country} rate history · {result.rate_history[0]?.year}–{result.rate_history[result.rate_history.length - 1]?.year}
                 </div>
-                <div className="text-sm font-medium text-foreground">What the US has charged on this product over time</div>
+                <div className="text-sm font-medium text-foreground">What {result.destination_country} has charged on this product over time</div>
               </div>
               {result.volatility_stats && (
                 <div className="flex gap-4 text-right">

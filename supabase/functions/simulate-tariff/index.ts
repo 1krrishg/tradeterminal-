@@ -560,7 +560,7 @@ serve(async (req) => {
     // ── 8. Alternative markets ──
     // Priority: live scraped retaliation data → WTO official MFN rate → exclude
     // Never fall back to the current product's own rate (makes all countries look identical)
-    const altCountries = ALL_COUNTRIES.filter(c => c.name !== destination_country);
+    const altCountries = ALL_COUNTRIES.filter(c => c.name !== destination_country && c.name !== originCountry);
     const altResults = await Promise.all(
       altCountries.map(async (alt) => {
         // 1. Check live scraped retaliation data first
@@ -632,7 +632,7 @@ serve(async (req) => {
     const scenarios = [
       {
         name: "Today",
-        description: `Current effective rate: ${mfn_rate}% MFN${retaliation_rate > 0 ? ` + ${retaliation_rate}% retaliatory` : ""}. ${retaliation_note ?? ""}`,
+        description: `Current effective rate: ${mfn_rate !== null ? `${mfn_rate}% MFN` : "rate unavailable"}${retaliation_rate > 0 ? ` + ${retaliation_rate}% retaliatory` : ""}. ${retaliation_note ?? ""}`,
         tariff_rate: effective_rate,
         tariff_cost: tariff_cost_today,
         net_proceeds: shipment_value - tariff_cost_today,
