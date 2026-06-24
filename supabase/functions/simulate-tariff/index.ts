@@ -103,6 +103,66 @@ const FTA_AGREEMENTS: Record<string, string> = {
   "India::Japan": "CEPA",
 };
 
+// ── OFAC Sanctions — trade with these countries is prohibited or heavily restricted ──
+// Source: US Treasury OFAC, EU Council Regulations, UN Security Council Resolutions
+const SANCTIONS: Record<string, { level: "prohibited" | "restricted"; note: string; authority: string }> = {
+  "Russia": {
+    level: "restricted",
+    note: "Comprehensive US/EU/UK sanctions post Feb 2022 invasion of Ukraine. Most goods prohibited. Exceptions: food, medicine, certain humanitarian goods. Financial transactions blocked via SWIFT.",
+    authority: "US EO 14024, EU Regulation 833/2014 (amended), UK Russia (Sanctions) Regulations 2019",
+  },
+  "Iran": {
+    level: "prohibited",
+    note: "Comprehensive OFAC sanctions. Nearly all trade prohibited without specific OFAC license. Exceptions: food, medicine, medical devices under TSRA.",
+    authority: "IEEPA, IFCA, Iran Sanctions Act — 31 CFR Part 560",
+  },
+  "North Korea": {
+    level: "prohibited",
+    note: "Comprehensive OFAC sanctions. All trade prohibited. UN Security Council resolutions ban exports of coal, iron, seafood, textiles, and imports of luxury goods.",
+    authority: "31 CFR Part 510, UN SC Resolutions 2270/2321/2375/2397",
+  },
+  "Cuba": {
+    level: "restricted",
+    note: "US embargo under CACR/TWEA. Most trade prohibited. Limited exceptions for food, medicine, telecommunications, and authorized travel-related goods.",
+    authority: "31 CFR Part 515 (Cuban Assets Control Regulations), TWEA",
+  },
+  "Syria": {
+    level: "prohibited",
+    note: "Comprehensive OFAC sanctions (Syrian Sanctions Regulations). Nearly all trade and investment prohibited without specific license.",
+    authority: "31 CFR Part 542, Caesar Syria Civilian Protection Act 2019",
+  },
+  "Belarus": {
+    level: "restricted",
+    note: "Sectoral EU/US/UK sanctions post 2021 election crisis and support for Russia invasion. Prohibitions on potash, petroleum, steel, tobacco, and financial services.",
+    authority: "US EO 14038, EU Regulation 2021/1030",
+  },
+  "Myanmar": {
+    level: "restricted",
+    note: "US sectoral sanctions post 2021 military coup. Prohibitions on jade, rubies, and goods from military-owned entities. EU arms embargo.",
+    authority: "US BURMA Act 2021, EO 14014",
+  },
+  "Venezuela": {
+    level: "restricted",
+    note: "US sectoral sanctions on gold, oil sector, and government entities. Financial restrictions on Venezuelan sovereign debt. Limited general trade still permitted.",
+    authority: "EO 13808/13827/13835/13884, 31 CFR Part 591",
+  },
+};
+
+// ── Section 232 exemptions — these countries have deals that override the blanket 25%/10% ──
+// Source: USTR proclamations and bilateral deals
+const SECTION_232_EXEMPT: Record<string, { steel: boolean; aluminum: boolean; note: string }> = {
+  "Canada":        { steel: true,  aluminum: true,  note: "USMCA — fully exempt from Section 232 steel and aluminum tariffs" },
+  "Mexico":        { steel: true,  aluminum: true,  note: "USMCA — fully exempt from Section 232 steel and aluminum tariffs" },
+  "European Union":{ steel: true,  aluminum: true,  note: "US-EU TRQ deal (Oct 2021) — quota-based exemption from Section 232; tariff-free within quota volumes" },
+  "United Kingdom":{ steel: true,  aluminum: true,  note: "US-UK Section 232 deal (Jun 2022) — quota-based exemption; tariff-free within agreed volumes" },
+  "Japan":         { steel: true,  aluminum: false,  note: "US-Japan Section 232 deal (Apr 2022) — steel quota exemption; aluminum still faces 10%" },
+  "South Korea":   { steel: true,  aluminum: false,  note: "US-South Korea Section 232 quota deal — steel exempt within quota; aluminum still faces 10%" },
+};
+
+// Steel HS chapters: 72xx, 73xx. Aluminum: 76xx.
+function isSteel(hs4: string): boolean { return hs4.startsWith("72") || hs4.startsWith("73"); }
+function isAluminum(hs4: string): boolean { return hs4.startsWith("76"); }
+
 // Fetch WTO preferential rate (HS_A_0020) — the best rate the reporter offers to any FTA partner
 // We use this when we know an FTA exists between origin and destination
 async function getWtoPreferentialRate(reporterCode: string, hs4: string, agreementName: string): Promise<{ rate: number; agreement: string } | null> {
@@ -163,6 +223,43 @@ serve(async (req) => {
     const originCountry = origin_country || "United States";
     const isImporter = trade_mode === "importer";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // ── Sanctions check — return early with warning if corridor is sanctioned ──
+    const originSanction = SANCTIONS[originCountry] ?? null;
+    const destSanction = SANCTIONS[destination_country] ?? null;
+    const activeSanction = originSanction ?? destSanction;
+    if (activeSanction) {
+      return new Response(JSON.stringify({
+        hs_code,
+        product_name: product_name ?? "Goods",
+        origin_country: originCountry,
+        destination_country,
+        shipment_value,
+        sanctions_alert: true,
+        sanctions_level: activeSanction.level,
+        sanctions_note: activeSanction.note,
+        sanctions_authority: activeSanction.authority,
+        sanctioned_party: originSanction ? originCountry : destination_country,
+        mfn_rate: null,
+        effective_rate: null,
+        tariff_cost_today: null,
+        risk_score: 100,
+        risk_label: "PROHIBITED",
+        risk_summary: `This corridor involves ${originSanction ? originCountry : destination_country}, which is subject to ${activeSanction.level === "prohibited" ? "comprehensive trade prohibitions" : "significant trade restrictions"} under ${activeSanction.authority}. Standard tariff analysis does not apply — consult a trade compliance attorney before proceeding.`,
+        recommendation: "Do not ship without an OFAC license or legal clearance. Penalties include up to $1M per violation and criminal prosecution.",
+        prediction: "Sanctions are unlikely to be lifted in the near term. Explore alternative markets.",
+        data_source: "OFAC SDN List · US Treasury · EU Council Regulations · UN Security Council",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── Section 232 exemption check — override global retaliation_rate for exempt origins ──
+    const s232Exemption = destination_country === "United States" ? (SECTION_232_EXEMPT[originCountry] ?? null) : null;
+    const hs4ForExemption = hs_code.substring(0, 4);
+    const s232Overridden = s232Exemption && (
+      (isSteel(hs4ForExemption) && s232Exemption.steel) ||
+      (isAluminum(hs4ForExemption) && s232Exemption.aluminum)
+    );
+    const s232ExemptionNote = s232Overridden ? s232Exemption!.note : null;
 
     // ── 1. Get live retaliation data from tariff_rates (scraped hourly) ──
     // Two lookups: global (origin_country IS NULL) + origin-specific (e.g. Section 301 China-only)
@@ -244,8 +341,11 @@ serve(async (req) => {
     const isSentinel = rawCatalogMfn > 100;
     const catalogMfnPct = isSentinel ? 0 : (rawCatalogMfn <= 1 ? rawCatalogMfn * 100 : rawCatalogMfn);
     const usMfnFallback = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
-    const retaliation_rate = (liveEntry?.retaliation_rate ?? 0) + originSpecificRate;
-    const retaliation_note = [liveEntry?.retaliation_note, originSpecificNote].filter(Boolean).join(" | ") || null;
+    const baseRetaliationRate = s232Overridden ? 0 : (liveEntry?.retaliation_rate ?? 0);
+    const retaliation_rate = baseRetaliationRate + originSpecificRate;
+    const retaliation_note = s232Overridden
+      ? s232ExemptionNote
+      : [liveEntry?.retaliation_note, originSpecificNote].filter(Boolean).join(" | ") || null;
     const resolved_product = liveEntry?.product_name ?? catalog?.description ?? product_name ?? "Goods";
     const data_freshness = liveEntry?.synced_at ?? null;
 
@@ -487,6 +587,9 @@ ${context}`,
       retaliation_note,
       origin_specific_rate: originSpecificRate > 0 ? originSpecificRate : null,
       origin_specific_note: originSpecificNote,
+      section_232_exempt: s232Overridden ? true : null,
+      section_232_note: s232ExemptionNote,
+      sanctions_alert: false,
       tariff_cost_today,
       // WTO preferential rate for this exact origin→destination corridor
       preferential_rate,

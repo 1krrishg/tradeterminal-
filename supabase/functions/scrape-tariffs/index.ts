@@ -80,6 +80,13 @@ const KEY_HS_CODES: { hs4: string; name: string }[] = [
   { hs4: "0902", name: "Tea" },
   { hs4: "7113", name: "Jewelry/Articles of precious metal" },
   { hs4: "8708", name: "Auto Parts" },
+  // High-value US exports missing from WTO data coverage
+  { hs4: "8411", name: "Turbojets/Gas Turbines (Jet Engines)" },
+  { hs4: "2709", name: "Crude Petroleum Oil" },
+  { hs4: "3901", name: "Plastics (polyethylene)" },
+  { hs4: "2917", name: "Chemicals (polycarboxylic acids)" },
+  { hs4: "8479", name: "Industrial Machinery" },
+  { hs4: "8708", name: "Auto Parts" },
 ];
 
 // ── Known retaliation tariffs — verified from official government sources ──────
@@ -124,6 +131,28 @@ const KNOWN_RETALIATIONS: {
   { hs_code: "1005", product_name: "Corn/Maize", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 30, retaliation_note: "Turkey Official Gazette 2018 — 30% additional tariff on US corn" },
   { hs_code: "2208", product_name: "Bourbon/Whiskey", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 140, retaliation_note: "Turkey Official Gazette 2018 — 140% additional tariff on US spirits" },
 
+  // ── Additional China retaliations (WTO data confirmed) ──
+  { hs_code: "5201", product_name: "Cotton", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 1, 2018 — 25% additional on US cotton (on top of 40% MFN = 65% total)" },
+  { hs_code: "2701", product_name: "Coal", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 1, 2018 — 25% additional on US coal" },
+  { hs_code: "3004", product_name: "Medicaments", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "China applies 1.8% MFN on US pharmaceuticals — no additional retaliation. China relies on US pharma imports." },
+
+  // ── India — high MFN rates that catch US exporters off guard ──
+  { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 125% MFN duty on imported passenger vehicles — one of the world's highest auto tariffs. No FTA with US. This is the base MFN rate, not a retaliation." },
+  { hs_code: "1201", product_name: "Soybeans", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 45% MFN duty on soybeans. No US-India FTA. High baseline tariff." },
+  { hs_code: "1005", product_name: "Corn/Maize", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 65% MFN duty on corn/maize. No US-India FTA. Significant barrier for US agricultural exports." },
+  { hs_code: "8517", product_name: "Telephones/Smartphones", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 11.4% MFN duty on smartphones. PLI scheme incentivizes local manufacturing (Apple, Samsung assemble in India)." },
+  { hs_code: "8411", product_name: "Turbojets/Jet Engines", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 8.4% MFN on jet engines/turbines. US is a major supplier to Indian airlines." },
+  { hs_code: "2711", product_name: "LNG/Natural Gas", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 10% MFN on LNG. US is a growing LNG supplier to India." },
+
+  // ── South Korea — KORUS FTA reduces many rates to 0% but some remain ──
+  { hs_code: "1005", product_name: "Corn/Maize", destination_country: "South Korea", destination_code: "KR", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "South Korea charges 378% MFN on corn — one of the highest in the world. However KORUS FTA reduces US corn to 0% TRQ (within quota). Exporters must verify quota availability." },
+  { hs_code: "0201", product_name: "Beef", destination_country: "South Korea", destination_code: "KR", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "South Korea charges 40% MFN on beef. KORUS FTA reduces US beef progressively — currently around 10.7% and declining to 0% by 2026." },
+  { hs_code: "2208", product_name: "Bourbon/Whiskey", destination_country: "South Korea", destination_code: "KR", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "South Korea charges 20.1% MFN on spirits. KORUS FTA reduces US bourbon to 0%." },
+
+  // ── Japan — US-Japan Trade Agreement (2020) covers some products ──
+  { hs_code: "0201", product_name: "Beef", destination_country: "Japan", destination_code: "JP", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "Japan charges 38.5% MFN on beef. US-Japan Trade Agreement (Jan 2020) reduces US beef to 26.6% currently, declining to 9% by 2033. Significant savings vs MFN." },
+  { hs_code: "1201", product_name: "Soybeans", destination_country: "Japan", destination_code: "JP", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "Japan charges 0% on soybeans. No tariff barrier — US is a major soybean supplier to Japan." },
+
   // ── US import duties — what the US charges on goods coming IN ────────────
 
   // Section 232 — origin_country: null = applies to ALL origins (Canada/Mexico exempt but still stored; simulate-tariff applies FTA override)
@@ -141,6 +170,13 @@ const KNOWN_RETALIATIONS: {
   { hs_code: "8708", product_name: "Auto Parts", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 2 (USTR, 2018) — 25% additional on Chinese-origin auto parts." },
   { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 100, retaliation_note: "US Section 301 + Biden EV tariff (2024) — 100% additional on Chinese-origin electric vehicles; 25% on ICE vehicles." },
   { hs_code: "8802", product_name: "Aircraft", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 3 (USTR, 2018) — 25% additional on Chinese-origin aircraft." },
+  // 2024 Biden escalation on China (effective May 2024)
+  { hs_code: "8541", product_name: "Solar Cells/Modules", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 50, retaliation_note: "US Section 301 (Biden 2024 escalation) — 50% on Chinese-origin solar cells, up from 25%. Plus Section 201 safeguard (14%) applies separately to all origins. Chinese solar faces 50%+ADD/CVD = 200%+ total." },
+  { hs_code: "7208", product_name: "Steel (flat-rolled)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 (Biden 2024) — additional 25% on Chinese steel, stacked on top of Section 232 (25%). Chinese steel now faces 50% total additional duties." },
+  { hs_code: "7606", product_name: "Aluminum plates/sheets", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 (Biden 2024) — additional 25% on Chinese aluminum, stacked on top of Section 232 (10%). Chinese aluminum faces 35% total additional duties." },
+  { hs_code: "8708", product_name: "Auto Parts (EV batteries/components)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 (Biden 2024) — 25% on Chinese EV batteries and components. Lithium-ion EV batteries escalating to 50% by 2026." },
+  // ADD/CVD on Chinese solar (separate from Section 301)
+  { hs_code: "8541", product_name: "Solar Cells/Modules (ADD+CVD)", destination_country: "United States", destination_code: "US", origin_country: null, origin_code: null, retaliation_rate: 14, retaliation_note: "US Section 201 safeguard — 14% on solar cells from ALL origins (2022 rate). Chinese solar additionally faces Section 301 (50%) + anti-dumping duties (AD) averaging 100-250% + countervailing duties (CVD) averaging 15-50%. Total effective rate on Chinese solar: 200%+." },
 ];
 
 // ── WTO API helpers ───────────────────────────────────────────────────────────
