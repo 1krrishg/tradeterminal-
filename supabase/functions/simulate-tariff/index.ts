@@ -134,6 +134,7 @@ function isRateLimited(ip: string): boolean {
 
 // All countries we know about for alternative routing
 const ALL_COUNTRIES = [
+  { name: "United States", code: "US" },
   { name: "Japan", code: "JP" },
   { name: "Canada", code: "CA" },
   { name: "Mexico", code: "MX" },
@@ -164,12 +165,28 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // ── 1. Get live retaliation data from tariff_rates (scraped hourly) ──
-    const { data: liveEntry } = await supabase
-      .from("tariff_rates")
-      .select("*")
-      .eq("hs_code", hs_code.substring(0, 4))
-      .eq("destination_country", destination_country)
-      .maybeSingle();
+    // Two lookups: global (origin_country IS NULL) + origin-specific (e.g. Section 301 China-only)
+    // Stack both to get total additional duties for this corridor
+    const [{ data: liveGlobal }, { data: liveOriginSpecific }] = await Promise.all([
+      supabase
+        .from("tariff_rates")
+        .select("*")
+        .eq("hs_code", hs_code.substring(0, 4))
+        .eq("destination_country", destination_country)
+        .is("origin_country", null)
+        .maybeSingle(),
+      supabase
+        .from("tariff_rates")
+        .select("*")
+        .eq("hs_code", hs_code.substring(0, 4))
+        .eq("destination_country", destination_country)
+        .eq("origin_country", originCountry)
+        .maybeSingle(),
+    ]);
+    // Merge: use global entry as base, stack origin-specific retaliation_rate on top
+    const liveEntry = liveGlobal ?? liveOriginSpecific;
+    const originSpecificRate = liveOriginSpecific?.retaliation_rate ?? 0;
+    const originSpecificNote = liveOriginSpecific?.retaliation_note ?? null;
 
     // ── 2. Get baseline MFN rate from hts_catalog (USITC 2026 official data) ──
     const { data: catalogEntry } = await supabase
@@ -227,8 +244,8 @@ serve(async (req) => {
     const isSentinel = rawCatalogMfn > 100;
     const catalogMfnPct = isSentinel ? 0 : (rawCatalogMfn <= 1 ? rawCatalogMfn * 100 : rawCatalogMfn);
     const usMfnFallback = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
-    const retaliation_rate = liveEntry?.retaliation_rate ?? 0;
-    const retaliation_note = liveEntry?.retaliation_note ?? null;
+    const retaliation_rate = (liveEntry?.retaliation_rate ?? 0) + originSpecificRate;
+    const retaliation_note = [liveEntry?.retaliation_note, originSpecificNote].filter(Boolean).join(" | ") || null;
     const resolved_product = liveEntry?.product_name ?? catalog?.description ?? product_name ?? "Goods";
     const data_freshness = liveEntry?.synced_at ?? null;
 
@@ -468,6 +485,8 @@ ${context}`,
       retaliation_rate,
       effective_rate,
       retaliation_note,
+      origin_specific_rate: originSpecificRate > 0 ? originSpecificRate : null,
+      origin_specific_note: originSpecificNote,
       tariff_cost_today,
       // WTO preferential rate for this exact origin→destination corridor
       preferential_rate,

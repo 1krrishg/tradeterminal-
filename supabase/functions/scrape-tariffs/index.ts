@@ -22,6 +22,7 @@ function nextGroqKey(): string {
 
 // ── WTO country codes ─────────────────────────────────────────────────────────
 const WTO_COUNTRIES: { name: string; code: string; destCode: string }[] = [
+  { name: "United States",  code: "842", destCode: "US" },
   { name: "China",          code: "156", destCode: "CN" },
   { name: "European Union", code: "918", destCode: "EU" },
   { name: "Canada",         code: "124", destCode: "CA" },
@@ -62,13 +63,33 @@ const KEY_HS_CODES: { hs4: string; name: string }[] = [
   { hs4: "2711", name: "LNG/Natural Gas" },
   { hs4: "2701", name: "Coal" },
   { hs4: "0811", name: "Cranberries" },
+  // Additional products relevant for imports TO the US
+  { hs4: "6109", name: "T-shirts/Knit Apparel" },
+  { hs4: "6203", name: "Men's Suits/Trousers" },
+  { hs4: "6204", name: "Women's Suits/Dresses" },
+  { hs4: "6110", name: "Sweaters/Jerseys" },
+  { hs4: "8541", name: "Solar Cells/Diodes" },
+  { hs4: "8517", name: "Telephones/Smartphones" },
+  { hs4: "8471", name: "Computers/Laptops" },
+  { hs4: "6402", name: "Footwear" },
+  { hs4: "7210", name: "Steel (coated flat-rolled)" },
+  { hs4: "7606", name: "Aluminum plates/sheets" },
+  { hs4: "2933", name: "Pharmaceuticals (nitrogen compounds)" },
+  { hs4: "3004", name: "Medicaments" },
+  { hs4: "0901", name: "Coffee" },
+  { hs4: "0902", name: "Tea" },
+  { hs4: "7113", name: "Jewelry/Articles of precious metal" },
+  { hs4: "8708", name: "Auto Parts" },
 ];
 
 // ── Known retaliation tariffs — verified from official government sources ──────
 // Source: USTR Federal Register notices, foreign ministry announcements
 // These are ADDITIONAL duties imposed on top of MFN rates
+// origin_country: null = applies to ALL origins; string = applies to that origin only
 const KNOWN_RETALIATIONS: {
-  hs_code: string; product_name: string; destination_country: string; destination_code: string;
+  hs_code: string; product_name: string;
+  destination_country: string; destination_code: string;
+  origin_country?: string | null; origin_code?: string | null;
   retaliation_rate: number; retaliation_note: string;
 }[] = [
   // China retaliations on US goods (Section 301 response)
@@ -102,6 +123,24 @@ const KNOWN_RETALIATIONS: {
   { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 120, retaliation_note: "Turkey Official Gazette 2018 — 120% additional tariff on US cars" },
   { hs_code: "1005", product_name: "Corn/Maize", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 30, retaliation_note: "Turkey Official Gazette 2018 — 30% additional tariff on US corn" },
   { hs_code: "2208", product_name: "Bourbon/Whiskey", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 140, retaliation_note: "Turkey Official Gazette 2018 — 140% additional tariff on US spirits" },
+
+  // ── US import duties — what the US charges on goods coming IN ────────────
+
+  // Section 232 — origin_country: null = applies to ALL origins (Canada/Mexico exempt but still stored; simulate-tariff applies FTA override)
+  { hs_code: "7208", product_name: "Steel (flat-rolled)", destination_country: "United States", destination_code: "US", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "US Section 232 (Proclamation 9705, 2018) — 25% on steel from most countries. Canada/Mexico exempt under USMCA." },
+  { hs_code: "7210", product_name: "Steel (coated flat-rolled)", destination_country: "United States", destination_code: "US", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "US Section 232 (Proclamation 9705, 2018) — 25% on coated steel mill products from most countries." },
+  { hs_code: "7606", product_name: "Aluminum plates/sheets", destination_country: "United States", destination_code: "US", origin_country: null, origin_code: null, retaliation_rate: 10, retaliation_note: "US Section 232 (Proclamation 9704, 2018) — 10% on aluminum from most countries. Canada/Mexico exempt under USMCA." },
+
+  // Section 201 — applies to ALL origins
+  { hs_code: "8541", product_name: "Solar Cells/Diodes", destination_country: "United States", destination_code: "US", origin_country: null, origin_code: null, retaliation_rate: 14, retaliation_note: "US Section 201 safeguard (2022 rate) — 14% additional on imported solar cells/modules from all origins." },
+
+  // Section 301 — China-origin ONLY
+  { hs_code: "8471", product_name: "Computers/Laptops", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 3 (USTR, 2018) — 25% additional on Chinese-origin computers and data processing machines." },
+  { hs_code: "8517", product_name: "Telephones/Smartphones", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 7.5, retaliation_note: "US Section 301 List 4A (USTR, 2019) — 7.5% additional on Chinese-origin smartphones and telephones." },
+  { hs_code: "8542", product_name: "Semiconductors", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 3 (USTR, 2018) — 25% additional on Chinese-origin integrated circuits." },
+  { hs_code: "8708", product_name: "Auto Parts", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 2 (USTR, 2018) — 25% additional on Chinese-origin auto parts." },
+  { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 100, retaliation_note: "US Section 301 + Biden EV tariff (2024) — 100% additional on Chinese-origin electric vehicles; 25% on ICE vehicles." },
+  { hs_code: "8802", product_name: "Aircraft", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 3 (USTR, 2018) — 25% additional on Chinese-origin aircraft." },
 ];
 
 // ── WTO API helpers ───────────────────────────────────────────────────────────
@@ -244,21 +283,19 @@ serve(async (req) => {
 
     for (const country of WTO_COUNTRIES) {
       for (const product of KEY_HS_CODES) {
-        const key = `${product.hs4}::${country.name.toLowerCase()}`;
+        const key = `${product.hs4}::${country.name.toLowerCase()}::null`;
         if (seen.has(key)) continue;
 
-        // Get WTO MFN rate for this country × product
         const mfnRate = wtoRateMap.get(`${country.code}::${product.hs4}`) ?? 0;
 
-        // Find known retaliation for this country × product
+        // Global retaliation for this dest (origin_country = null)
         const retaliation = KNOWN_RETALIATIONS.find(
-          r => r.hs_code === product.hs4 && r.destination_country === country.name
+          r => r.hs_code === product.hs4 && r.destination_country === country.name && !r.origin_country
         );
 
         const retaliation_rate = retaliation?.retaliation_rate ?? 0;
         const effective_rate = parseFloat((mfnRate + retaliation_rate).toFixed(2));
 
-        // Only upsert if we have actual data (either WTO rate or known retaliation)
         if (mfnRate > 0 || retaliation_rate > 0) {
           seen.add(key);
           toUpsert.push({
@@ -266,6 +303,8 @@ serve(async (req) => {
             product_name: product.name,
             destination_country: country.name,
             destination_code: country.destCode,
+            origin_country: null,
+            origin_code: null,
             mfn_rate: mfnRate,
             retaliation_rate,
             effective_rate,
@@ -277,12 +316,33 @@ serve(async (req) => {
       }
     }
 
+    // Also upsert all origin-specific entries (Section 301, anti-dumping)
+    for (const r of KNOWN_RETALIATIONS.filter(r => r.origin_country)) {
+      const key = `${r.hs_code}::${r.destination_country.toLowerCase()}::${r.origin_country!.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      toUpsert.push({
+        hs_code: r.hs_code,
+        product_name: r.product_name,
+        destination_country: r.destination_country,
+        destination_code: r.destination_code,
+        origin_country: r.origin_country,
+        origin_code: r.origin_code ?? null,
+        mfn_rate: 0,
+        retaliation_rate: r.retaliation_rate,
+        effective_rate: r.retaliation_rate,
+        retaliation_note: r.retaliation_note,
+        last_updated: new Date().toISOString().split("T")[0],
+        synced_at: runStart,
+      });
+    }
+
     // Batch upsert in chunks of 100
     for (let i = 0; i < toUpsert.length; i += 100) {
       const chunk = toUpsert.slice(i, i + 100);
       const { error } = await supabase
         .from("tariff_rates")
-        .upsert(chunk, { onConflict: "hs_code,destination_country" });
+        .upsert(chunk, { onConflict: "hs_code,destination_country,origin_country" });
       if (!error) totalUpserted += chunk.length;
     }
 

@@ -297,11 +297,14 @@ export default function ResultsPage() {
           {[
             { label: "Product code", value: result.hs_code, note: "Used for customs classification" },
             { label: "Trade route", value: `${(result as any).origin_country || "Origin"} → ${result.destination_country}` },
-            { label: "Standard rate (what all countries pay)", value: `${result.mfn_rate}%` },
+            { label: `${result.destination_country} MFN rate (all origins)`, value: `${result.mfn_rate}%`, note: "WTO bound rate — what this country charges every trading partner" },
             (result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined
-              ? { label: "Free trade agreement rate", value: `${(result as any).preferential_rate}%`, highlight: "success", note: "If your goods qualify" }
+              ? { label: "FTA preferential rate", value: `${(result as any).preferential_rate}%`, highlight: "success", note: (result as any).preferential_note ?? "If your goods qualify under the agreement" }
               : null,
-            { label: isImporter ? `Additional ${result.destination_country} duties today (live)` : "Retaliatory tax from this country (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None active", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
+            { label: isImporter ? `Additional ${result.destination_country} duties (live)` : "Retaliatory duty from destination (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None active", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
+            (result as any).origin_specific_rate > 0
+              ? { label: `Origin-specific duty (${(result as any).origin_country} → ${result.destination_country})`, value: `+${(result as any).origin_specific_rate}%`, highlight: "destructive", note: (result as any).origin_specific_note ?? "Applies to your origin country only" }
+              : null,
             { label: "Effective rate on your shipment", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
             { label: isImporter ? `Total duty owed at ${result.destination_country} customs` : "Total tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : result.tariff_cost_today > 0 ? "warning" : "success" },
           ].filter(Boolean).map(({ label, value, highlight, note }: any) => (
