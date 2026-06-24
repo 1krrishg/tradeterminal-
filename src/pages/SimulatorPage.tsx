@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const COUNTRIES = [
-  "China", "European Union", "Canada", "Mexico", "Japan", "India",
+  "United States", "China", "European Union", "Canada", "Mexico", "Japan", "India",
   "South Korea", "United Kingdom", "Australia", "Brazil", "Singapore",
   "Turkey", "Vietnam", "Indonesia", "Thailand", "Malaysia",
 ];
