@@ -22,7 +22,7 @@ function nextGroqKey(): string {
 
 // ── WTO country codes ─────────────────────────────────────────────────────────
 const WTO_COUNTRIES: { name: string; code: string; destCode: string }[] = [
-  { name: "United States",  code: "842", destCode: "US" },
+  { name: "United States",  code: "840", destCode: "US" },
   { name: "China",          code: "156", destCode: "CN" },
   { name: "European Union", code: "918", destCode: "EU" },
   { name: "Canada",         code: "124", destCode: "CA" },
@@ -168,6 +168,15 @@ const KNOWN_RETALIATIONS: {
   { hs_code: "8708", product_name: "Auto Parts", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 2 (USTR, 2018) — 25% additional on Chinese-origin auto parts." },
   { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 100, retaliation_note: "US Section 301 + Biden EV tariff (2024) — 100% additional on Chinese-origin electric vehicles; 25% on ICE vehicles." },
   { hs_code: "8802", product_name: "Aircraft", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 3 (USTR, 2018) — 25% additional on Chinese-origin aircraft." },
+  // ── Anti-dumping (ADD) + Countervailing duties (CVD) — US as destination ──
+  // These stack on top of MFN + Section 301/232
+  { hs_code: "7606", product_name: "Aluminum Extrusions", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 374, retaliation_note: "US ADD/CVD on Chinese aluminum extrusions (DOC final determination) — anti-dumping ~347% + CVD ~27% = ~374% additional. One of the highest ADD rates in force. Source: Federal Register Vol.76 No.79." },
+  { hs_code: "7208", product_name: "Steel (Cold-Rolled/Corrosion-Resistant)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 265, retaliation_note: "US ADD/CVD on Chinese cold-rolled/CORE steel — anti-dumping 265% + CVD 256% (DOC 2016 final). Stacks on Section 232 (25%) and Section 301 (25%). Total Chinese steel duty can exceed 500%." },
+  { hs_code: "8541", product_name: "Solar Cells/Panels (ADD+CVD)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 238, retaliation_note: "US ADD/CVD on Chinese solar cells (ITC/DOC) — anti-dumping 238% + CVD 15-50%. Stacks on Section 301 (50%) and Section 201 (14%). Total effective rate on Chinese solar: 300%+." },
+  { hs_code: "7208", product_name: "Steel (flat-rolled)", destination_country: "United States", destination_code: "US", origin_country: "India", origin_code: "IN", retaliation_rate: 35, retaliation_note: "US ADD on Indian cold-rolled/corrosion-resistant steel — anti-dumping margins vary by producer, typically 3.7–35% (DOC annual reviews). Stacks on Section 232 (25%). Total: up to 60% on Indian steel." },
+  { hs_code: "0306", product_name: "Shrimp/Prawns", destination_country: "United States", destination_code: "US", origin_country: "India", origin_code: "IN", retaliation_rate: 10, retaliation_note: "US ADD on Indian frozen shrimp (DOC A-533-840) — anti-dumping rates vary by company, typically 0-10%. Check DOC case registry for current company-specific rates." },
+  { hs_code: "8471", product_name: "Computers/Laptops (ADD)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 0, retaliation_note: "No ADD/CVD on Chinese computers beyond Section 301 (25%). Section 301 is the primary additional duty layer here." },
+
   // 2024 Biden escalation on China (effective May 2024)
   { hs_code: "8541", product_name: "Solar Cells/Modules", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 50, retaliation_note: "US Section 301 (Biden 2024 escalation) — 50% on Chinese-origin solar cells, up from 25%. Plus Section 201 safeguard (14%) applies separately to all origins. Chinese solar faces 50%+ADD/CVD = 200%+ total." },
   { hs_code: "7208", product_name: "Steel (flat-rolled)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 (Biden 2024) — additional 25% on Chinese steel, stacked on top of Section 232 (25%). Chinese steel now faces 50% total additional duties." },

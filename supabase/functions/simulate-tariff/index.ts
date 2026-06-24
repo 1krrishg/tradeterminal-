@@ -13,7 +13,7 @@ const WTO_API_KEY = Deno.env.get("WTO_API_KEY") ?? "";
 
 // WTO reporter codes (importing country that sets the tariff)
 const WTO_COUNTRY_CODES: Record<string, string> = {
-  "United States": "842",
+  "United States": "840",
   "China": "156",
   "European Union": "918",
   "Canada": "124",
@@ -34,7 +34,7 @@ const WTO_COUNTRY_CODES: Record<string, string> = {
 
 // WTO partner codes (exporting/origin country)
 const WTO_PARTNER_CODES: Record<string, string> = {
-  "United States": "842",
+  "United States": "840",
   "China": "156",
   "European Union": "918",
   "Canada": "124",
@@ -369,8 +369,10 @@ serve(async (req) => {
     const authoritative_mfn = wtoMfn ?? usMfnFallback;
     const mfn_rate = authoritative_mfn; // alias for readability below
 
-    // effective_rate uses the destination country's actual rate, not the US catalog rate
-    const effective_rate = liveEntry?.effective_rate ?? parseFloat((authoritative_mfn + retaliation_rate).toFixed(2));
+    // Always recompute effective_rate from live WTO MFN + stacked duties.
+    // Never use liveEntry.effective_rate — it was calculated at scrape time with mfnRate=0
+    // (WTO batch fails) so it only contains the retaliation portion, missing the MFN base.
+    const effective_rate = parseFloat(((authoritative_mfn ?? 0) + retaliation_rate).toFixed(2));
     const tariff_cost_today = Math.round(shipment_value * (effective_rate / 100));
 
     const preferential_rate = wtoPref?.rate ?? null;
