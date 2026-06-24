@@ -31,6 +31,7 @@ type SimResult = {
   alternative_markets: AltMarket[];
   volatility_stats: { volatility: number; max_year_jump: number; max_jump_year: number; avg_rate: number; max_rate: number } | null;
   risk_summary: string; recommendation: string; prediction: string;
+  regulatory_flags?: { type: "PROHIBITED" | "WARNING" | "COMPLIANCE" | "OPPORTUNITY"; title: string; detail: string; authority: string }[];
   data_source: string; data_freshness: string | null;
 };
 
@@ -483,6 +484,36 @@ export default function ResultsPage() {
             </div>
             <div className="p-4">
               <p className="text-sm text-foreground leading-relaxed">{result.risk_summary}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Regulatory flags */}
+        {result.regulatory_flags && result.regulatory_flags.length > 0 && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-muted/30">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Regulatory compliance &amp; trade controls</div>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              {result.regulatory_flags.map((flag, i) => {
+                const colors = {
+                  PROHIBITED: { border: "border-destructive/40", bg: "bg-destructive/5", dot: "bg-destructive", label: "text-destructive" },
+                  WARNING:    { border: "border-warning/40",     bg: "bg-warning/5",     dot: "bg-warning",     label: "text-warning" },
+                  COMPLIANCE: { border: "border-blue-400/40",    bg: "bg-blue-500/5",    dot: "bg-blue-400",    label: "text-blue-400" },
+                  OPPORTUNITY:{ border: "border-success/40",     bg: "bg-success/5",     dot: "bg-success",     label: "text-success" },
+                }[flag.type];
+                return (
+                  <div key={i} className={`rounded-lg border ${colors.border} ${colors.bg} p-4`}>
+                    <div className="flex items-start gap-2 mb-1.5">
+                      <span className={`mt-1.5 h-2 w-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                      <span className={`text-xs font-semibold uppercase tracking-wide ${colors.label}`}>{flag.type}</span>
+                      <span className="text-sm font-medium text-foreground leading-tight">{flag.title}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed ml-4">{flag.detail}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1.5 ml-4 font-mono">{flag.authority}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -160,6 +160,137 @@ const SECTION_232_EXEMPT: Record<string, { steel: boolean; aluminum: boolean; no
 };
 
 // Steel HS chapters: 72xx, 73xx. Aluminum: 76xx.
+// ── Regulatory flags — compliance warnings beyond tariff rates ──────────────
+type RegulatoryFlag = {
+  type: "PROHIBITED" | "WARNING" | "COMPLIANCE" | "OPPORTUNITY";
+  title: string;
+  detail: string;
+  authority: string;
+};
+
+// HS4 prefixes subject to UFLPA (Xinjiang forced labor) scrutiny
+const UFLPA_HS4_PREFIXES = [
+  "5201","5202","5203","5204","5205","5206","5207","5208","5209","5210","5211","5212", // cotton
+  "6101","6102","6103","6104","6105","6106","6107","6108","6109","6110","6111","6112", // knit apparel (cotton-based)
+  "6201","6202","6203","6204","6205","6206","6207","6208","6209","6210","6211","6212", // woven apparel
+  "8541",                                    // polysilicon / solar cells
+  "7601","7604","7606","7607","7608","7609", // aluminum (Xinjiang is major aluminum producer)
+  "2002","2005",                             // tomatoes (Xinjiang tomato paste)
+];
+
+// HS4 codes subject to BIS Export Administration Regulations (EAR)
+const EAR_HS4 = new Set(["8542","8471","8517","8411","8802","8803","8543","8528","9014","9015"]);
+
+// HS4 codes that may touch ITAR (defense articles) when going to restricted destinations
+const ITAR_HS4 = new Set(["8802","8803","8411","9301","9302","9303","9304","9305","9306"]);
+const ITAR_RESTRICTED = new Set(["China","Russia","Iran","North Korea","Syria","Belarus"]);
+
+function computeRegulatoryFlags(
+  originCountry: string,
+  destinationCountry: string,
+  hs4: string,
+  ftaAgreement: string | null,
+  shipmentValue: number
+): RegulatoryFlag[] {
+  const flags: RegulatoryFlag[] = [];
+
+  // ── UFLPA — Xinjiang Forced Labor Prevention Act ──
+  if (
+    originCountry === "China" &&
+    destinationCountry === "United States" &&
+    UFLPA_HS4_PREFIXES.some(p => hs4.startsWith(p.substring(0, 4)))
+  ) {
+    flags.push({
+      type: "PROHIBITED",
+      title: "UFLPA — Xinjiang Forced Labor Risk",
+      detail: "Goods in this HS category from China are subject to the Uyghur Forced Labor Prevention Act. CBP will detain shipments at the port unless the importer can prove by clear and convincing evidence that goods were not produced with forced labor in Xinjiang. Cotton, polysilicon, aluminum, and tomatoes are the highest-risk categories. Obtain full supply chain documentation (mill certificates, facility audits, satellite verification) before shipping.",
+      authority: "Uyghur Forced Labor Prevention Act (PL 117-78) · CBP UFLPA Entity List · 19 USC 1307",
+    });
+  }
+
+  // ── USMCA Rules of Origin ──
+  if (
+    destinationCountry === "United States" &&
+    (originCountry === "Canada" || originCountry === "Mexico") &&
+    ftaAgreement === "USMCA"
+  ) {
+    const isAuto    = hs4.startsWith("87");
+    const isTextile = hs4.startsWith("61") || hs4.startsWith("62") || hs4.startsWith("52") || hs4.startsWith("63");
+    const isSteel   = hs4.startsWith("72") || hs4.startsWith("73");
+    const isAlum    = hs4.startsWith("76");
+
+    if (isAuto) {
+      flags.push({
+        type: "COMPLIANCE",
+        title: "USMCA Rules of Origin — Automotive (75% RVC Required)",
+        detail: "To qualify for 0% USMCA rate on vehicles: 75% regional value content from North America, steel/aluminum must be melted and poured in North America, and EV batteries must have 50%+ North American content (rising to 100% by 2027). Failure to qualify = standard US MFN rate applies (2.5% cars, 25% trucks). Certify on importer's own statement — no certificate required but keep records 5 years.",
+        authority: "USMCA Chapter 4 · Automotive Appendix · 19 CFR Part 182",
+      });
+    } else if (isTextile) {
+      flags.push({
+        type: "COMPLIANCE",
+        title: "USMCA Rules of Origin — Textiles (Yarn-Forward)",
+        detail: "Textiles must meet yarn-forward rule: yarn spun, fabric woven, and garments cut/sewn in North America. Tariff Preference Levels (TPL) exist for limited quantities that don't meet yarn-forward. Failure to qualify means standard US MFN apparel rates apply (typically 12–32%).",
+        authority: "USMCA Chapter 4 · Annex 4-B · 19 CFR Part 182",
+      });
+    } else if (isSteel || isAlum) {
+      flags.push({
+        type: "COMPLIANCE",
+        title: "USMCA Rules of Origin — Steel/Aluminum (Melt and Pour)",
+        detail: "Steel and aluminum must be melted and poured in North America to qualify for USMCA treatment and Section 232 exemption. Basic production stage must occur in NA — not just final manufacturing. Third-country steel processed in Mexico/Canada does NOT qualify.",
+        authority: "USMCA Chapter 4 · Steel/Aluminum Annex · Presidential Proclamation 9740",
+      });
+    } else {
+      flags.push({
+        type: "COMPLIANCE",
+        title: "USMCA Rules of Origin — Verify Before Claiming 0%",
+        detail: "To claim the USMCA preferential rate, goods must satisfy product-specific rules of origin (tariff classification change and/or regional value content). Self-certify origin on the commercial invoice or a separate statement. CBP can audit up to 5 years after entry. If goods fail origin verification, back duties + interest + possible penalties apply.",
+        authority: "USMCA Chapter 4 · 19 CFR Part 182 · CBP Form 434",
+      });
+    }
+  }
+
+  // ── De minimis — Section 321 ──
+  if (destinationCountry === "United States") {
+    if (shipmentValue <= 800 && originCountry === "China") {
+      flags.push({
+        type: "WARNING",
+        title: "De Minimis at Risk for China-Origin",
+        detail: "US de minimis threshold is $800 (Section 321) — shipments below this value enter duty-free. However, executive actions in 2025 targeted Chinese-origin goods for de minimis elimination. Status is legally uncertain and changing rapidly. Do not build a business model relying on de minimis for China-origin shipments.",
+        authority: "19 USC 1321 · Executive Order (2025) on de minimis · STOP Act (House-passed)",
+      });
+    } else if (shipmentValue <= 800) {
+      flags.push({
+        type: "OPPORTUNITY",
+        title: "De Minimis May Apply — Duty-Free Entry",
+        detail: `This shipment value ($${shipmentValue.toLocaleString()}) is at or below the US de minimis threshold of $800. Shipments under $800 may enter the US duty-free under Section 321, with no formal customs entry required. Limit: one de minimis entry per person per day. Does not apply to goods subject to AD/CVD orders or Section 232/301 in some cases.`,
+        authority: "19 USC 1321 · 19 CFR Part 10.153",
+      });
+    }
+  }
+
+  // ── BIS/EAR Export Controls — US as exporter ──
+  if (originCountry === "United States" && EAR_HS4.has(hs4)) {
+    flags.push({
+      type: "WARNING",
+      title: "BIS Export Controls — EAR License May Be Required",
+      detail: `HS ${hs4} is likely on the Commerce Control List (CCL). Classify your specific product by its Export Control Classification Number (ECCN). Advanced semiconductors (ECCN 3A001), encryption (5E002), and aerospace components require a BIS license for many destinations. Check whether your destination is on the Country Chart for your ECCN. Unlicensed export = criminal penalties up to $1M per violation.`,
+      authority: "15 CFR Parts 730–774 (EAR) · BIS Commerce Control List · 50 USC 4801",
+    });
+  }
+
+  // ── ITAR — Defense Articles to Restricted Destinations ──
+  if (originCountry === "United States" && ITAR_HS4.has(hs4) && ITAR_RESTRICTED.has(destinationCountry)) {
+    flags.push({
+      type: "PROHIBITED",
+      title: "ITAR — Defense Article Export Prohibited",
+      detail: `Military aircraft, spacecraft, engines, and related components are defense articles under ITAR. Export to ${destinationCountry} is prohibited — a State Department license will not be granted for this destination. Violations carry criminal penalties of up to 20 years imprisonment and $1M per violation. Consult a licensed export control attorney before any transfer.`,
+      authority: "22 CFR Parts 120–130 (ITAR) · USML Categories IV, VIII, XV · Arms Export Control Act",
+    });
+  }
+
+  return flags;
+}
 function isSteel(hs4: string): boolean { return hs4.startsWith("72") || hs4.startsWith("73"); }
 function isAluminum(hs4: string): boolean { return hs4.startsWith("76"); }
 
@@ -374,6 +505,14 @@ serve(async (req) => {
     // (WTO batch fails) so it only contains the retaliation portion, missing the MFN base.
     const effective_rate = parseFloat(((authoritative_mfn ?? 0) + retaliation_rate).toFixed(2));
     const tariff_cost_today = Math.round(shipment_value * (effective_rate / 100));
+
+    const regulatory_flags = computeRegulatoryFlags(
+      originCountry,
+      destination_country,
+      hs4,
+      ftaAgreement,
+      shipment_value
+    );
 
     const preferential_rate = wtoPref?.rate ?? null;
     const preferential_saving = preferential_rate !== null
@@ -613,6 +752,7 @@ ${context}`,
         avg_rate: Math.min((volRow.avg_rate ?? 0) * 100, 150),
         max_rate: Math.min((volRow.max_rate ?? 0) * 100, 150),
       } : null,
+      regulatory_flags,
       risk_summary: aiOutput.risk_summary,
       recommendation: aiOutput.recommendation,
       prediction: aiOutput.prediction,
