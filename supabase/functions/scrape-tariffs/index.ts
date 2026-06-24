@@ -85,6 +85,9 @@ const KEY_HS_CODES: { hs4: string; name: string }[] = [
   { hs4: "3901", name: "Plastics (polyethylene)" },
   { hs4: "2917", name: "Chemicals (polycarboxylic acids)" },
   { hs4: "8479", name: "Industrial Machinery" },
+  { hs4: "9403", name: "Wooden Furniture" },
+  { hs4: "4011", name: "Pneumatic Tires" },
+  { hs4: "6907", name: "Ceramic Tiles" },
 ];
 
 // ── Known retaliation tariffs — verified from official government sources ──────
@@ -129,7 +132,23 @@ const KNOWN_RETALIATIONS: {
   { hs_code: "1005", product_name: "Corn/Maize", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 30, retaliation_note: "Turkey Official Gazette 2018 — 30% additional tariff on US corn" },
   { hs_code: "2208", product_name: "Bourbon/Whiskey", destination_country: "Turkey", destination_code: "TR", retaliation_rate: 140, retaliation_note: "Turkey Official Gazette 2018 — 140% additional tariff on US spirits" },
 
-  // ── Additional China retaliations (WTO data confirmed) ──
+  // ── Additional China retaliations ──
+  { hs_code: "3901", product_name: "Plastics (polyethylene)", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 3, 2018 — 25% on US plastics/chemicals" },
+  { hs_code: "8479", product_name: "Industrial Machinery", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 2, 2018 — 25% on US industrial machinery" },
+  { hs_code: "8411", product_name: "Turbojets/Jet Engines", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 3, 2018 — 25% on US aircraft engines. Significant impact on GE/Pratt & Whitney exports." },
+  { hs_code: "9018", product_name: "Medical Devices", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 3, 2018 — 25% on US medical instruments/devices" },
+
+  // ── EU additional retaliations ──
+  { hs_code: "5201", product_name: "Cotton", destination_country: "European Union", destination_code: "EU", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "EU does not retaliate on US cotton — EU MFN rate is 0%. No tariff barrier for US cotton exports to EU." },
+  { hs_code: "8711", product_name: "Motorcycles (Harley-Davidson)", destination_country: "European Union", destination_code: "EU", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "EU Implementing Regulation 2018/886 — 25% rebalancing measure on US motorcycles (>800cc). Directly targeted Harley-Davidson as Section 232 retaliation." },
+  { hs_code: "5201", product_name: "Cotton", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 1, 2018 — 25% additional on US cotton (on top of 40% MFN = 65% total)" },
+
+  // ── India additional retaliations ──
+  { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India charges 125% MFN duty on imported passenger vehicles. No US-India FTA. This is the base MFN rate — not a retaliation." },
+  { hs_code: "2009", product_name: "Orange Juice", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "India Notification No.28/2019-Customs — 25% additional on US orange juice as Section 232 retaliation." },
+  { hs_code: "0201", product_name: "Beef", destination_country: "India", destination_code: "IN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "India MFN on beef is 30% but beef imports are near-prohibited for religious/cultural reasons. Effectively a non-tariff barrier." },
+
+  // ── More ADD/CVD — US as destination ──
   { hs_code: "5201", product_name: "Cotton", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 1, 2018 — 25% additional on US cotton (on top of 40% MFN = 65% total)" },
   { hs_code: "2701", product_name: "Coal", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 25, retaliation_note: "China retaliatory tariff List 1, 2018 — 25% additional on US coal" },
   { hs_code: "3004", product_name: "Medicaments", destination_country: "China", destination_code: "CN", origin_country: null, origin_code: null, retaliation_rate: 0, retaliation_note: "China applies 1.8% MFN on US pharmaceuticals — no additional retaliation. China relies on US pharma imports." },
@@ -169,6 +188,14 @@ const KNOWN_RETALIATIONS: {
   { hs_code: "8703", product_name: "Passenger Vehicles", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 100, retaliation_note: "US Section 301 + Biden EV tariff (2024) — 100% additional on Chinese-origin electric vehicles; 25% on ICE vehicles." },
   { hs_code: "8802", product_name: "Aircraft", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 25, retaliation_note: "US Section 301 List 3 (USTR, 2018) — 25% additional on Chinese-origin aircraft." },
   // ── Anti-dumping (ADD) + Countervailing duties (CVD) — US as destination ──
+  // Vietnamese shrimp ADD
+  { hs_code: "0306", product_name: "Shrimp/Prawns", destination_country: "United States", destination_code: "US", origin_country: "Vietnam", origin_code: "VN", retaliation_rate: 25, retaliation_note: "US ADD on Vietnamese frozen shrimp (DOC A-552-802) — anti-dumping rates vary 0-25% depending on producer. Check CBP for current rates." },
+  // Chinese furniture ADD
+  { hs_code: "9403", product_name: "Wooden Furniture", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 216, retaliation_note: "US ADD on Chinese wooden bedroom furniture (DOC A-570-890) — anti-dumping 216% (all-others rate). One of the longest-running ADD orders (since 2005). Plus Section 301 (25%)." },
+  // Chinese tires ADD
+  { hs_code: "4011", product_name: "Pneumatic Tires", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 76, retaliation_note: "US ADD/CVD + Section 301 on Chinese tires — anti-dumping ~20%, CVD ~56%, Section 301 25%. Total additional duties ~76%+." },
+  // Chinese ceramic tiles ADD
+  { hs_code: "6907", product_name: "Ceramic Tiles", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 340, retaliation_note: "US ADD/CVD on Chinese ceramic tiles (DOC A-570-059) — anti-dumping 260-340%+ for non-cooperative companies. Plus Section 301 (25%)." },
   // These stack on top of MFN + Section 301/232
   { hs_code: "7606", product_name: "Aluminum Extrusions", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 374, retaliation_note: "US ADD/CVD on Chinese aluminum extrusions (DOC final determination) — anti-dumping ~347% + CVD ~27% = ~374% additional. One of the highest ADD rates in force. Source: Federal Register Vol.76 No.79." },
   { hs_code: "7208", product_name: "Steel (Cold-Rolled/Corrosion-Resistant)", destination_country: "United States", destination_code: "US", origin_country: "China", origin_code: "CN", retaliation_rate: 265, retaliation_note: "US ADD/CVD on Chinese cold-rolled/CORE steel — anti-dumping 265% + CVD 256% (DOC 2016 final). Stacks on Section 232 (25%) and Section 301 (25%). Total Chinese steel duty can exceed 500%." },
