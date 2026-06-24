@@ -143,6 +143,48 @@ export default function ResultsPage() {
     );
   }
 
+  // Sanctions block — return early before trying to render null rates
+  if ((result as any).sanctions_alert) {
+    const r = result as any;
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <NavBar />
+        <main className="container mx-auto px-5 sm:px-6 py-10 max-w-3xl space-y-5">
+          <div>
+            <Link to="/simulate" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3">
+              <ArrowLeft className="h-3 w-3" /> New simulation
+            </Link>
+            <h1 className="text-2xl font-semibold text-foreground">{r.product_name}</h1>
+            <p className="text-muted-foreground text-sm mt-1">{r.origin_country} → {r.destination_country}</p>
+          </div>
+          <div className="rounded-xl border-2 border-destructive/40 bg-destructive-soft p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="h-6 w-6 text-destructive flex-shrink-0" />
+              <div>
+                <div className="font-semibold text-destructive text-lg">
+                  {r.sanctions_level === "prohibited" ? "Trade Prohibited" : "Trade Restricted"} — {r.sanctioned_party}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Standard tariff analysis does not apply</div>
+              </div>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">{r.sanctions_note}</p>
+            <div className="rounded-lg border border-destructive/20 bg-background/50 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Legal authority</div>
+              <p className="text-xs text-foreground font-mono">{r.sanctions_authority}</p>
+            </div>
+            <div className="rounded-lg border border-warning/30 bg-warning-soft p-3">
+              <p className="text-sm font-medium text-warning">{r.recommendation}</p>
+            </div>
+          </div>
+          <Button asChild variant="outline" className="w-full">
+            <Link to="/simulate"><ArrowLeft className="h-4 w-4 mr-2" />Try a different corridor</Link>
+          </Button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   const sevColor = (s: string) =>
     s === "high" ? "border-destructive/30 bg-destructive-soft" :
     s === "medium" ? "border-warning/30 bg-warning-soft" : "border-success/30 bg-success-soft";

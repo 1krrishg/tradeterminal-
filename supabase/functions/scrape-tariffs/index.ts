@@ -73,7 +73,6 @@ const KEY_HS_CODES: { hs4: string; name: string }[] = [
   { hs4: "8471", name: "Computers/Laptops" },
   { hs4: "6402", name: "Footwear" },
   { hs4: "7210", name: "Steel (coated flat-rolled)" },
-  { hs4: "7606", name: "Aluminum plates/sheets" },
   { hs4: "2933", name: "Pharmaceuticals (nitrogen compounds)" },
   { hs4: "3004", name: "Medicaments" },
   { hs4: "0901", name: "Coffee" },
@@ -86,7 +85,6 @@ const KEY_HS_CODES: { hs4: string; name: string }[] = [
   { hs4: "3901", name: "Plastics (polyethylene)" },
   { hs4: "2917", name: "Chemicals (polycarboxylic acids)" },
   { hs4: "8479", name: "Industrial Machinery" },
-  { hs4: "8708", name: "Auto Parts" },
 ];
 
 // ── Known retaliation tariffs — verified from official government sources ──────

@@ -781,7 +781,7 @@ export default function SimulatorPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-foreground">HS Classification · GRI Analysis</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                        {candidates.length} candidates
+                        {candidates.length} {candidates.length === 1 ? "candidate" : "candidates"}
                       </span>
                     </div>
                     <button

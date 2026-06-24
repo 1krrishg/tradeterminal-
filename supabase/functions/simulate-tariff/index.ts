@@ -340,7 +340,10 @@ serve(async (req) => {
     const rawCatalogMfn = catalog?.mfn_rate ?? 0;
     const isSentinel = rawCatalogMfn > 100;
     const catalogMfnPct = isSentinel ? 0 : (rawCatalogMfn <= 1 ? rawCatalogMfn * 100 : rawCatalogMfn);
-    const usMfnFallback = liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 3);
+    // Only use USITC catalog as fallback when destination IS the US — it's a US-only dataset
+    const usMfnFallback = destination_country === "United States"
+      ? (liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 0))
+      : null;
     const baseRetaliationRate = s232Overridden ? 0 : (liveEntry?.retaliation_rate ?? 0);
     const retaliation_rate = baseRetaliationRate + originSpecificRate;
     const retaliation_note = s232Overridden
