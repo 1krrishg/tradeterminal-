@@ -117,7 +117,7 @@ export function LiveFeed() {
           <div>
             <div className="text-xs font-medium uppercase tracking-wider text-primary mb-2">Live tariff intelligence</div>
             <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
-              What US exporters are facing right now
+              Active tariff exposure across trade corridors
             </h2>
           </div>
           <div className="flex items-center gap-2 flex-wrap">

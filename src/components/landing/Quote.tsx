@@ -3,11 +3,23 @@ export function Quote() {
     <section className="relative py-16 sm:py-20 md:py-28 border-b border-border bg-secondary/40">
       <div className="container mx-auto px-5 sm:px-6">
         <div className="max-w-3xl">
-          <blockquote className="text-2xl sm:text-3xl md:text-4xl font-semibold text-foreground leading-snug mb-6">
-            "We didn't know China had a 25% retaliatory tariff on our soybeans until we were already committed to the shipment. That cost us $125,000 in margin on a single load."
-          </blockquote>
-          <div className="text-sm text-muted-foreground mb-10">
-            <span className="font-medium text-foreground">Midwest soybean exporter</span> · $12M annual export volume
+          <div className="space-y-8 mb-10">
+            <div>
+              <blockquote className="text-2xl sm:text-3xl md:text-4xl font-semibold text-foreground leading-snug mb-4">
+                "We didn't know China had a 25% retaliatory tariff on our soybeans until we were already committed to the shipment. That cost us $125,000 in margin on a single load."
+              </blockquote>
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Midwest soybean exporter</span> · $12M annual export volume
+              </div>
+            </div>
+            <div className="border-t border-border pt-8">
+              <blockquote className="text-xl sm:text-2xl font-semibold text-foreground leading-snug mb-4">
+                "We manufacture in India and import to the US. We had no idea what the MFN duty rate was on our product category or whether we qualified for a lower rate. The first time we checked, we were overpaying by 4 percentage points."
+              </blockquote>
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Indian textile manufacturer, US importer</span> · $3M annual import volume
+              </div>
+            </div>
           </div>
 
           {/* Why not ChatGPT */}

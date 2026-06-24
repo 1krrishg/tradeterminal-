@@ -18,9 +18,9 @@ export function RiskGallery() {
         <div className="max-w-2xl mb-10">
           <div className="text-xs font-medium uppercase tracking-wider text-primary mb-3">Live tariff exposure map</div>
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground leading-[1.1]">
-            What US exporters are actually facing.
+            Real tariff rates across corridors right now.
           </h2>
-          <p className="text-muted-foreground mt-3 text-sm">Real rates from USITC 2026 + live-scraped retaliatory data. Risk scores from 29-year volatility analysis.</p>
+          <p className="text-muted-foreground mt-3 text-sm">Live-scraped retaliatory data + WTO official MFN rates. Risk scores from 29-year USITC rate volatility analysis.</p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {examples.map((e) => (
