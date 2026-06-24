@@ -515,7 +515,7 @@ serve(async (req) => {
     );
 
     const preferential_rate = wtoPref?.rate ?? null;
-    const preferential_saving = preferential_rate !== null
+    const preferential_saving = (preferential_rate !== null && authoritative_mfn !== null)
       ? Math.round(shipment_value * ((authoritative_mfn - preferential_rate) / 100))
       : null;
 

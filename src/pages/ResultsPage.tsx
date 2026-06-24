@@ -17,13 +17,15 @@ type Scenario = {
   tariff_rate: number; tariff_cost: number; net_proceeds: number;
   severity: "high" | "medium" | "low" | "none";
 };
-type AltMarket = { country: string; code: string; rate: number; cost: number; saving: number; retaliation: number };
+type AltMarket = { country: string; code: string; rate: number; cost: number; saving: number; retaliation: number; source?: string };
 type HistoryPoint = { year: number; rate: number };
 
+type RegulatoryFlag = { type: "PROHIBITED" | "WARNING" | "COMPLIANCE" | "OPPORTUNITY"; title: string; detail: string; authority: string };
+
 type SimResult = {
-  hs_code: string; product_name: string; destination_country: string;
-  shipment_value: number; mfn_rate: number; retaliation_rate: number;
-  effective_rate: number; retaliation_note: string; tariff_cost_today: number;
+  hs_code: string; product_name: string; origin_country: string; destination_country: string;
+  shipment_value: number; mfn_rate: number | null; retaliation_rate: number;
+  effective_rate: number | null; retaliation_note: string | null; tariff_cost_today: number;
   scenarios: Scenario[];
   risk_score: number; risk_label: string;
   retaliation_probability: number;
@@ -31,7 +33,11 @@ type SimResult = {
   alternative_markets: AltMarket[];
   volatility_stats: { volatility: number; max_year_jump: number; max_jump_year: number; avg_rate: number; max_rate: number } | null;
   risk_summary: string; recommendation: string; prediction: string;
-  regulatory_flags?: { type: "PROHIBITED" | "WARNING" | "COMPLIANCE" | "OPPORTUNITY"; title: string; detail: string; authority: string }[];
+  regulatory_flags?: RegulatoryFlag[];
+  origin_specific_rate?: number | null; origin_specific_note?: string | null;
+  section_232_exempt?: boolean | null; section_232_note?: string | null;
+  preferential_rate?: number | null; preferential_saving?: number | null; preferential_note?: string | null;
+  sanctions_alert?: boolean; sanctions_level?: string; sanctions_note?: string; sanctions_authority?: string; sanctioned_party?: string;
   data_source: string; data_freshness: string | null;
 };
 
@@ -145,8 +151,7 @@ export default function ResultsPage() {
   }
 
   // Sanctions block — return early before trying to render null rates
-  if ((result as any).sanctions_alert) {
-    const r = result as any;
+  if (result.sanctions_alert) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <NavBar />
@@ -155,8 +160,8 @@ export default function ResultsPage() {
             <Link to="/simulate" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3">
               <ArrowLeft className="h-3 w-3" /> New simulation
             </Link>
-            <h1 className="text-2xl font-semibold text-foreground">{r.product_name}</h1>
-            <p className="text-muted-foreground text-sm mt-1">{r.origin_country} → {r.destination_country}</p>
+            <h1 className="text-2xl font-semibold text-foreground">{result.product_name}</h1>
+            <p className="text-muted-foreground text-sm mt-1">{result.origin_country} → {result.destination_country}</p>
           </div>
           <div className="rounded-xl border-2 border-destructive/40 bg-destructive-soft p-6 space-y-4">
             <div className="flex items-center gap-3">
@@ -218,7 +223,7 @@ export default function ResultsPage() {
             {result.product_name.length > 60 ? result.product_name.substring(0, 60) + "…" : result.product_name}
           </h1>
           <p className="text-muted-foreground text-sm mt-1 break-words">
-            {(result as any).origin_country || "Origin"} → {result.destination_country} · {fmt(result.shipment_value)} shipment
+            {result.origin_country || "Origin"} → {result.destination_country} · {fmt(result.shipment_value)} shipment
           </p>
           <div className={`inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${isImporter ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
             {isImporter ? "📦 Import analysis" : "🚢 Export analysis"}
@@ -271,15 +276,15 @@ export default function ResultsPage() {
         )}
 
         {/* FTA savings banner */}
-        {(result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined && (result as any).preferential_saving > 0 && (
+        {result.preferential_rate !== null && result.preferential_rate !== undefined && result.preferential_saving > 0 && (
           <div className="rounded-xl border border-success/30 bg-success-soft p-4 flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-success">Free trade agreement rate available</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{(result as any).preferential_note}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{result.preferential_note}</div>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="text-lg font-bold text-success font-mono">{(result as any).preferential_rate}%</div>
-              <div className="text-xs text-success font-medium">saves {fmt((result as any).preferential_saving)}</div>
+              <div className="text-lg font-bold text-success font-mono">{result.preferential_rate}%</div>
+              <div className="text-xs text-success font-medium">saves {fmt(result.preferential_saving)}</div>
             </div>
           </div>
         )}
@@ -339,14 +344,14 @@ export default function ResultsPage() {
           </div>
           {[
             { label: "Product code", value: result.hs_code, note: "Used for customs classification" },
-            { label: "Trade route", value: `${(result as any).origin_country || "Origin"} → ${result.destination_country}` },
+            { label: "Trade route", value: `${result.origin_country || "Origin"} → ${result.destination_country}` },
             { label: `${result.destination_country} MFN rate (all origins)`, value: `${result.mfn_rate}%`, note: "WTO bound rate — what this country charges every trading partner" },
-            (result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined
-              ? { label: "FTA preferential rate", value: `${(result as any).preferential_rate}%`, highlight: "success", note: (result as any).preferential_note ?? "If your goods qualify under the agreement" }
+            result.preferential_rate !== null && result.preferential_rate !== undefined
+              ? { label: "FTA preferential rate", value: `${result.preferential_rate}%`, highlight: "success", note: result.preferential_note ?? "If your goods qualify under the agreement" }
               : null,
             { label: isImporter ? `Additional ${result.destination_country} duties (live)` : "Retaliatory duty from destination (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None active", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
-            (result as any).origin_specific_rate > 0
-              ? { label: `Origin-specific duty (${(result as any).origin_country} → ${result.destination_country})`, value: `+${(result as any).origin_specific_rate}%`, highlight: "destructive", note: (result as any).origin_specific_note ?? "Applies to your origin country only" }
+            result.origin_specific_rate > 0
+              ? { label: `Origin-specific duty (${result.origin_country} → ${result.destination_country})`, value: `+${result.origin_specific_rate}%`, highlight: "destructive", note: result.origin_specific_note ?? "Applies to your origin country only" }
               : null,
             { label: "Effective rate on your shipment", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
             { label: isImporter ? `Total duty owed at ${result.destination_country} customs` : "Total tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : result.tariff_cost_today > 0 ? "warning" : "success" },
@@ -442,10 +447,10 @@ export default function ResultsPage() {
                           {isImporter ? `No extra ${result.destination_country} duties` : "No retaliatory tax"}
                         </span>
                       )}
-                      {(m as any).source === "wto" && (
+                      {m.source === "wto" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">Official rate</span>
                       )}
-                      {(m as any).source === "live" && (
+                      {m.source === "live" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">Live</span>
                       )}
                     </div>
