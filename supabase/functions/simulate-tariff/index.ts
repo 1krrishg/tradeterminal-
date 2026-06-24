@@ -475,11 +475,14 @@ serve(async (req) => {
     const usMfnFallback = destination_country === "United States"
       ? (liveEntry?.mfn_rate ?? (catalogMfnPct > 0 ? catalogMfnPct : 0))
       : null;
-    const baseRetaliationRate = s232Overridden ? 0 : (liveEntry?.retaliation_rate ?? 0);
+    // Use liveGlobal's rate as the base — NOT liveEntry (which falls back to liveOriginSpecific
+    // when no global row exists). Using liveEntry would double-count origin-specific rates
+    // when there is no global row (e.g. laptops: Section 301 China-only, no global duty).
+    const baseRetaliationRate = s232Overridden ? 0 : (liveGlobal?.retaliation_rate ?? 0);
     const retaliation_rate = baseRetaliationRate + originSpecificRate;
     const retaliation_note = s232Overridden
       ? s232ExemptionNote
-      : [liveEntry?.retaliation_note, originSpecificNote].filter(Boolean).join(" | ") || null;
+      : [liveGlobal?.retaliation_note, originSpecificNote].filter(Boolean).join(" | ") || null;
     const resolved_product = liveEntry?.product_name ?? catalog?.description ?? product_name ?? "Goods";
     const data_freshness = liveEntry?.synced_at ?? null;
 
@@ -514,7 +517,11 @@ serve(async (req) => {
       shipment_value
     );
 
-    const preferential_rate = wtoPref?.rate ?? null;
+    // Only show preferential rate if it's actually lower than MFN — WTO sometimes returns
+    // non-preferential bound rates under HS_A_0020 which would be misleading
+    const rawPrefRate = wtoPref?.rate ?? null;
+    const preferential_rate = (rawPrefRate !== null && authoritative_mfn !== null && rawPrefRate < authoritative_mfn)
+      ? rawPrefRate : null;
     const preferential_saving = (preferential_rate !== null && authoritative_mfn !== null)
       ? Math.round(shipment_value * ((authoritative_mfn - preferential_rate) / 100))
       : null;
