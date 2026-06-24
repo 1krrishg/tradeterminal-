@@ -175,7 +175,7 @@ export default function ResultsPage() {
             {result.product_name.length > 60 ? result.product_name.substring(0, 60) + "…" : result.product_name}
           </h1>
           <p className="text-muted-foreground text-sm mt-1 break-words">
-            {isImporter ? `Importing from ${result.destination_country} into the US` : `Exporting to ${result.destination_country}`} · {fmt(result.shipment_value)} shipment
+            {(result as any).origin_country || "Origin"} → {result.destination_country} · {fmt(result.shipment_value)} shipment
           </p>
           <div className={`inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${isImporter ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
             {isImporter ? "📦 Import analysis" : "🚢 Export analysis"}
@@ -187,7 +187,7 @@ export default function ResultsPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-                {isImporter ? "Duty you owe at the US border" : "Tariff cost on this shipment"}
+                {isImporter ? `Duty owed at ${result.destination_country} border` : "Tariff cost on this shipment"}
               </div>
               <div className={`text-4xl sm:text-5xl font-bold font-mono ${result.tariff_cost_today > 0 ? "text-destructive" : "text-success"}`}>
                 {result.tariff_cost_today > 0 ? `-${fmt(result.tariff_cost_today)}` : "No cost"}
@@ -296,14 +296,14 @@ export default function ResultsPage() {
           </div>
           {[
             { label: "Product code", value: result.hs_code, note: "Used for customs classification" },
-            { label: "Trade route", value: `${(result as any).origin_country || "US"} → ${result.destination_country}` },
+            { label: "Trade route", value: `${(result as any).origin_country || "Origin"} → ${result.destination_country}` },
             { label: "Standard rate (what all countries pay)", value: `${result.mfn_rate}%` },
             (result as any).preferential_rate !== null && (result as any).preferential_rate !== undefined
               ? { label: "Free trade agreement rate", value: `${(result as any).preferential_rate}%`, highlight: "success", note: "If your goods qualify" }
               : null,
-            { label: isImporter ? "Additional US duties today (live)" : "Retaliatory tax from this country (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None active", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
+            { label: isImporter ? `Additional ${result.destination_country} duties today (live)` : "Retaliatory tax from this country (live)", value: result.retaliation_rate > 0 ? `+${result.retaliation_rate}%` : "None active", highlight: result.retaliation_rate > 0 ? "warning" : "success" },
             { label: "Effective rate on your shipment", value: `${result.effective_rate}%`, highlight: result.effective_rate >= 20 ? "destructive" : result.effective_rate > 0 ? "warning" : "success" },
-            { label: isImporter ? "Total duty owed at US customs" : "Total tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : result.tariff_cost_today > 0 ? "warning" : "success" },
+            { label: isImporter ? `Total duty owed at ${result.destination_country} customs` : "Total tariff cost on this shipment", value: fmt(result.tariff_cost_today), highlight: result.tariff_cost_today > 10000 ? "destructive" : result.tariff_cost_today > 0 ? "warning" : "success" },
           ].filter(Boolean).map(({ label, value, highlight, note }: any) => (
             <div key={label} className="px-4 py-2.5 text-sm">
               <div className="flex justify-between gap-3">
@@ -393,7 +393,7 @@ export default function ResultsPage() {
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {m.retaliation === 0 && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-soft text-success font-medium">
-                          {isImporter ? "No extra US duties" : "No retaliatory tax"}
+                          {isImporter ? `No extra ${result.destination_country} duties` : "No retaliatory tax"}
                         </span>
                       )}
                       {(m as any).source === "wto" && (

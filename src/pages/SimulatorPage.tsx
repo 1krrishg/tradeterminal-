@@ -53,6 +53,20 @@ export default function SimulatorPage() {
   const [productName, setProductName] = useState("");
   const [originCountry, setOriginCountry] = useState("United States");
   const [destination, setDestination] = useState("");
+
+  // When trade mode switches, reset origin/destination to sensible defaults
+  const handleTradeModeChange = (tm: TradeMode) => {
+    setTradeMode(tm);
+    if (tm === "importer") {
+      // Importing TO the US — origin should be the foreign country, not the US
+      setOriginCountry("");
+      setDestination("United States");
+    } else {
+      // Exporting FROM the US
+      setOriginCountry("United States");
+      setDestination("");
+    }
+  };
   const [shipmentValue, setShipmentValue] = useState("");
   const [incoterms, setIncoterms] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -584,23 +598,23 @@ export default function SimulatorPage() {
 
         {/* Importer / Exporter toggle */}
         <div className="mb-5">
-          <div className="text-xs font-medium text-muted-foreground mb-2">I am a US…</div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">I am…</div>
           <div className="flex gap-2">
             {(["exporter", "importer"] as TradeMode[]).map((tm) => (
               <button
                 key={tm}
-                onClick={() => setTradeMode(tm)}
+                onClick={() => handleTradeModeChange(tm)}
                 className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-colors ${tradeMode === tm ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
               >
-                <span className="hidden sm:inline">{tm === "exporter" ? "🚢 Exporter — selling abroad" : "📦 Importer — buying from abroad"}</span>
+                <span className="hidden sm:inline">{tm === "exporter" ? "🚢 Exporter — shipping goods out" : "📦 Importer — bringing goods in"}</span>
                 <span className="sm:hidden">{tm === "exporter" ? "🚢 Exporter" : "📦 Importer"}</span>
               </button>
             ))}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             {tradeMode === "exporter"
-              ? "See what foreign countries charge on your goods — live retaliation + 29yr US export duty history."
-              : "See what the US charges on goods you bring in — MFN duty + Section 301/232 additional duties."}
+              ? "See what the destination country charges on your goods — live retaliation rates + 29 years of duty history."
+              : "See what the destination country charges on goods you're shipping in — MFN duty + any additional tariffs."}
           </p>
         </div>
 
