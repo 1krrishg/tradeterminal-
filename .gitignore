@@ -27,3 +27,16 @@ dist-ssr
 scripts/
 CONTEXT.md
 backend/.env
+.env
+.env.*
+!*.example
+
+# Python virtual environments & cache
+venv/
+.venv/
+backend/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.chroma/
+

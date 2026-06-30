@@ -1,3 +1,4 @@
+from typing import Optional, List, Tuple, Dict
 """
 RAG pipeline — chunk scraped text, embed via Runpod Flash BGE-M3, store in ChromaDB, retrieve top-K.
 """
@@ -13,7 +14,7 @@ _collection = _client.get_or_create_collection(
 )
 
 
-def _chunk(text: str, max_tokens: int = 500, overlap: int = 50) -> list[str]:
+def _chunk(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]:
     """Simple word-based chunker (approx 1 token ≈ 1 word for English)."""
     words = text.split()
     chunks = []
@@ -29,7 +30,7 @@ def _doc_id(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()
 
 
-async def index_documents(texts: list[str], metadata_tags: dict | None = None) -> int:
+async def index_documents(texts: List[str], metadata_tags: Optional[dict] = None) -> int:
     """Chunk, embed, and store documents. Returns number of chunks indexed."""
     all_chunks = []
     for text in texts:
@@ -55,7 +56,7 @@ async def index_documents(texts: list[str], metadata_tags: dict | None = None) -
     return len(all_chunks)
 
 
-async def retrieve(query: str, top_k: int = 8) -> list[str]:
+async def retrieve(query: str, top_k: int = 8) -> List[str]:
     """Embed query and retrieve top-K similar chunks."""
     q_embedding = await embed_text(query)
     results = _collection.query(

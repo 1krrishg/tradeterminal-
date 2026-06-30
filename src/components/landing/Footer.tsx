@@ -10,30 +10,30 @@ export function Footer() {
             <Logo className="h-6" withWordmark />
           </div>
           <p className="text-muted-foreground text-xs leading-relaxed">
-            Tariff risk simulation for US exporters. Know your exposure before you commit to a shipment.
+            Trade compliance + market intelligence for small exporters. Know if your product will pass customs and make money before you ship.
           </p>
         </div>
         <div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Product</div>
           <ul className="space-y-1.5 text-muted-foreground">
             <li><a href="#how" className="hover:text-foreground">How it works</a></li>
-            <li><a href="#scenarios" className="hover:text-foreground">Tariff map</a></li>
-            <li><Link to="/simulate" className="hover:text-foreground">Simulate a shipment</Link></li>
+            <li><a href="#demo" className="hover:text-foreground">Live demo</a></li>
+            <li><Link to="/analyze" className="hover:text-foreground">Analyze a route</Link></li>
           </ul>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Markets covered</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Destinations covered</div>
           <ul className="space-y-1.5 text-muted-foreground text-xs">
-            <li>China · European Union</li>
-            <li>Canada · Mexico · Japan</li>
-            <li>India · and more</li>
+            <li>India · Japan · Germany</li>
+            <li>Brazil · USA · UK</li>
+            <li>More coming soon</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-border">
         <div className="container mx-auto px-6 py-4 text-xs text-muted-foreground flex justify-between">
-          <span>© {new Date().getFullYear()} TariffLens</span>
-          <span>Built for US exporters</span>
+          <span>© {new Date().getFullYear()} TradeTerminal</span>
+          <span>Built for small exporters · Runpod Flash Hack Day</span>
         </div>
       </div>
     </footer>

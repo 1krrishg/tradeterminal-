@@ -2,6 +2,7 @@ export interface AnalyzeRequest {
   product: string;
   origin: string;
   destination: string;
+  shipment_value_usd?: number;
 }
 
 export interface SourcedItem {
@@ -60,6 +61,8 @@ export interface AnalyzeResponse {
   margin_gap_label: string | null;
   data_source: string;
   cached: boolean;
+  shipment_value_usd?: number | null;
+  shipment_assumption?: string;
   error?: string;
 }
 

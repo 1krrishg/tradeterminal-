@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "python_version": "3.12",
+  "generated_at": "2026-06-30T22:11:00.828139Z",
+  "project_name": "flash_app",
+  "resources": {
+    "tradeterminal-embedder": {
+      "resource_type": "LiveServerless",
+      "file_path": "main.py",
+      "local_path_prefix": "/main",
+      "module_path": "main",
+      "functions": [
+        {
+          "name": "embed",
+          "module": "main",
+          "is_async": true,
+          "is_class": false
+        }
+      ],
+      "is_load_balanced": false,
+      "is_live_resource": true,
+      "config_variable": null,
+      "makes_remote_calls": false,
+      "imageName": "runpod/flash:py3.12-latest",
+      "gpuIds": "AMPERE_16",
+      "workersMin": 0,
+      "workersMax": 3,
+      "idleTimeout": 120,
+      "scalerType": "QUEUE_DELAY",
+      "scalerValue": 4,
+      "locations": "US-CA-2,US-IL-1,US-KS-2,US-MO-1,US-MO-2,US-NC-2,US-NE-1,US-WA-1,EU-CZ-1,EU-RO-1,EUR-NO-1",
+      "minCudaVersion": "12.8",
+      "template": {
+        "containerDiskInGb": 64,
+        "dockerArgs": "",
+        "startScript": "",
+        "advancedStart": false,
+        "containerRegistryAuthId": ""
+      },
+      "handler_file": "handler_tradeterminal-embedder.py",
+      "target_python_version": "3.12"
+    },
+    "tradeterminal-extractor": {
+      "resource_type": "LiveServerless",
+      "file_path": "main.py",
+      "local_path_prefix": "/main",
+      "module_path": "main",
+      "functions": [
+        {
+          "name": "extract",
+          "module": "main",
+          "is_async": true,
+          "is_class": false
+        }
+      ],
+      "is_load_balanced": false,
+      "is_live_resource": true,
+      "config_variable": null,
+      "makes_remote_calls": false,
+      "imageName": "runpod/flash:py3.12-latest",
+      "gpuIds": "AMPERE_16",
+      "workersMin": 0,
+      "workersMax": 2,
+      "idleTimeout": 120,
+      "scalerType": "QUEUE_DELAY",
+      "scalerValue": 4,
+      "locations": "US-CA-2,US-IL-1,US-KS-2,US-MO-1,US-MO-2,US-NC-2,US-NE-1,US-WA-1,EU-CZ-1,EU-RO-1,EUR-NO-1",
+      "minCudaVersion": "12.8",
+      "template": {
+        "containerDiskInGb": 64,
+        "dockerArgs": "",
+        "startScript": "",
+        "advancedStart": false,
+        "containerRegistryAuthId": ""
+      },
+      "handler_file": "handler_tradeterminal-extractor.py",
+      "target_python_version": "3.12"
+    }
+  },
+  "function_registry": {
+    "embed": "tradeterminal-embedder",
+    "extract": "tradeterminal-extractor"
+  },
+  "source_fingerprint": "8ea1572d4b7f656020a194098ff1a1df4065d818a25dde35a92936e5c822440f"
+}

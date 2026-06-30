@@ -1,3 +1,4 @@
+from typing import Optional, List, Tuple, Dict
 """
 Freightos shipping rate integration.
 Public API endpoint — no key required for basic queries.
@@ -21,7 +22,7 @@ COUNTRY_CODE_MAP = {
 FREIGHTOS_API = "https://ship.freightos.com/api/shippingCalculator"
 
 
-async def get_shipping_rate(origin: str, destination: str, weight_kg: float = 200) -> dict | None:
+async def get_shipping_rate(origin: str, destination: str, weight_kg: float = 200) -> Optional[dict]:
     """
     Get shipping rate estimate from Freightos public API.
     Returns dict with carrier, cost, transit time or None if unavailable.
@@ -49,7 +50,7 @@ async def get_shipping_rate(origin: str, destination: str, weight_kg: float = 20
     return _estimate_fallback(origin, destination, weight_kg)
 
 
-def _parse_freightos(data: dict, origin: str, destination: str) -> dict | None:
+def _parse_freightos(data: dict, origin: str, destination: str) -> Optional[dict]:
     """Parse Freightos API response."""
     quotes = data.get("quotes") or data.get("results") or []
     if not quotes:

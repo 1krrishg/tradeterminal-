@@ -1,3 +1,4 @@
+from typing import Optional, List, Tuple, Dict
 """
 Supabase cache for TradeTerminal query results.
 Checks trade_queries table before running the full pipeline.
@@ -22,7 +23,7 @@ def _headers(write: bool = False) -> dict:
     }
 
 
-async def get_cached(product: str, origin: str, destination: str) -> dict | None:
+async def get_cached(product: str, origin: str, destination: str) -> Optional[dict]:
     """Look up a previous result in trade_queries."""
     url = f"{SUPABASE_URL}/rest/v1/trade_queries"
     params = {

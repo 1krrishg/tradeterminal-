@@ -1,3 +1,4 @@
+from typing import Optional, List, Tuple, Dict
 """
 Bright Data scrapers — geo-restricted ecommerce + government customs portals.
 Uses Bright Data Web Unlocker (bypasses geo-blocks, CAPTCHAs, bot detection).
@@ -38,7 +39,7 @@ async def _fetch(url: str, country: Optional[str] = None, timeout: float = 45.0)
 
 # ── Price extraction helpers ────────────────────────────────────────────────
 
-def _extract_prices(html: str) -> list[float]:
+def _extract_prices(html: str) -> List[float]:
     """Pull numeric prices from HTML — works across BigBasket, Rakuten, Mercado Libre."""
     patterns = [
         r'₹\s*([\d,]+)',        # INR
@@ -81,7 +82,7 @@ def _extract_seller_count(html: str) -> int:
     return 0
 
 
-def _extract_reviews(html: str) -> list[str]:
+def _extract_reviews(html: str) -> List[str]:
     """Pull review snippets from HTML."""
     patterns = [
         r'"reviewBody":\s*"([^"]{20,200})"',
@@ -99,7 +100,7 @@ def _currency_symbol(destination: str) -> str:
             "France": "€", "United States": "$"}.get(destination, "$")
 
 
-def _summarize_prices(prices: list[float], destination: str) -> tuple[str, str]:
+def _summarize_prices(prices: List[float], destination: str) -> Tuple[str, str]:
     """Return (avg_price_str, range_str) with correct currency."""
     if not prices:
         return "N/A", "N/A"

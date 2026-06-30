@@ -33,7 +33,7 @@ export function Quote() {
                 },
                 {
                   problem: "No dollar numbers",
-                  detail: "ChatGPT gives you a paragraph. TariffLens gives you the exact dollar cost on your specific shipment value."
+                  detail: "ChatGPT gives you a paragraph. TradeTerminal gives you live scraped prices, real duty rates, and a margin gap number."
                 },
                 {
                   problem: "No historical context",

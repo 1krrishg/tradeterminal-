@@ -1,0 +1,42 @@
+services:
+  # 1. FastAPI Python Backend
+  - type: web
+    name: tradeterminal-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DEMO_MODE
+        value: "false"
+      - key: RUNPOD_API_KEY
+        sync: false # User will input this in the Render Dashboard
+      - key: RUNPOD_ENDPOINT_ID_EMBEDDER
+        sync: false
+      - key: RUNPOD_ENDPOINT_ID_LLM
+        sync: false
+      - key: BRIGHT_DATA_API_KEY
+        sync: false
+      - key: BRIGHT_DATA_ZONE
+        value: tradeterminal
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+  # 2. React Vite Frontend
+  - type: web
+    name: tradeterminal-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          name: tradeterminal-backend
+          type: web
+          property: host

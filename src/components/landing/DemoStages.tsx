@@ -1,4 +1,4 @@
-import { Upload, Search, BarChart3, Lightbulb, TrendingUp, ArrowDown, FileSearch } from "lucide-react";
+import { Globe, Search, BarChart3, DollarSign, TrendingUp, ArrowDown } from "lucide-react";
 
 export function DemoStages() {
   return (
@@ -7,57 +7,49 @@ export function DemoStages() {
         <div className="max-w-2xl mb-10 sm:mb-14">
           <div className="text-xs font-medium uppercase tracking-wider text-primary mb-3">How it works</div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-foreground leading-[1.1]">
-            From product to decision in 30 seconds.
+            From product to dashboard in under 60 seconds.
           </h2>
         </div>
 
         <div className="space-y-4 sm:space-y-5">
           <Stage
-            icon={<Upload className="h-4 w-4 text-primary" />}
+            icon={<Globe className="h-4 w-4 text-primary" />}
             num="01"
-            title="Upload a document or just describe what you're shipping"
-            desc="Drop a commercial invoice or packing list and we extract everything: product, HS code, destination, shipment value. Mistral OCR reads the PDF; a separate model pulls the fields. Or skip the upload and describe your product in plain English."
-            source="Mistral OCR · pixtral-12b-2409"
-          />
-          <Arrow />
-          <Stage
-            icon={<FileSearch className="h-4 w-4 text-primary" />}
-            num="02"
-            title="We figure out the right HS code for customs"
-            desc="Every product crossing a border needs an HS code — the 8-digit international classification number that determines what duty rate applies. We apply the WCO's GRI rules (the 6-step system customs authorities follow), validate the code against the USITC HTS catalog, and look up an actual CBP ruling number from the US Customs database that covers a similar product. You get 3 candidates ranked by confidence, with the ruling citation you can hand to your broker."
-            source="USITC HTS catalog · CBP CROSS (120k+ public rulings) · WCO GRI"
+            title="Pick your product, origin, and destination"
+            desc="Type your product name, select where it's coming from, and where you want to sell it. That's the entire input. No HS codes, no customs forms, no prior knowledge required."
+            source="3 fields · instant start"
           />
           <Arrow />
           <Stage
             icon={<Search className="h-4 w-4 text-primary" />}
-            num="03"
-            title="29 years of MFN rate history, plus what's live right now"
-            desc="We pull the official MFN duty rate from the USITC HTS catalog for every year from 1998 to 2026 — that's the baseline rate every WTO member pays. Then we hit the WTO Timeseries API (indicator HS_A_0010) to get the current official rate for the destination country. On top of that, live retaliatory tariffs get layered in: China's Section 301 response, the EU's rebalancing measures, Canada's 25% across-the-board. The effective rate you see is what they're actually charging today."
-            source="USITC HTS 1998–2026 · WTO Timeseries API (HS_A_0010) · Live retaliation scraping"
+            num="02"
+            title="We scrape regulatory portals and live ecommerce simultaneously"
+            desc="Bright Data Web Unlocker hits government import authority sites (FSSAI for India, Japan Customs, EU TARIC) for duty rates, required documents, and certification requirements — while also scraping live shelf prices from BigBasket, Rakuten, Mercado Libre, or Zalando depending on destination."
+            source="Bright Data · FSSAI · CBIC · Japan Customs · MHLW · EU TARIC · BigBasket · Rakuten · Mercado Libre · Zalando"
           />
           <Arrow />
           <Stage
             icon={<BarChart3 className="h-4 w-4 text-primary" />}
+            num="03"
+            title="RAG pipeline extracts structured data from scraped text"
+            desc="All scraped text is chunked into 500-token segments and embedded via BGE-M3 (multilingual). The most relevant chunks are retrieved and sent to Qwen3.5-2B running on a Runpod Flash GPU. The model outputs a structured JSON with compliance fields and market fields — with confidence scores and source URLs."
+            source="BGE-M3 embeddings · ChromaDB · Qwen3.5-2B on Runpod Flash AMPERE GPU"
+          />
+          <Arrow />
+          <Stage
+            icon={<DollarSign className="h-4 w-4 text-primary" />}
             num="04"
-            title="The dollar cost on your specific shipment"
-            desc="Percentages don't mean much in isolation. We calculate three scenarios against your exact shipment value: today's effective rate (MFN + any active retaliation), a worst-case based on the biggest single-year rate jump this product has seen in the USITC history, and the best alternative country from WTO tariff data. If an FTA applies — USMCA, KORUS, CPTPP, AUSFTA — we pull the preferential rate from WTO indicator HS_A_0020 and show the saving."
-            source="USITC hts_volatility · WTO HS_A_0020 preferential rates · FTA corridors"
+            title="Shipping cost fetched from Freightos, landed cost computed"
+            desc="We call Freightos for a per-route shipping estimate. Then we add it to the extracted duty rate and product cost to compute your full landed cost breakdown — product, shipping, tariff, fees, total. The margin gap is the live local market price minus your landed cost."
+            source="Freightos API · computed landed cost · live price delta"
           />
           <Arrow />
           <Stage
             icon={<TrendingUp className="h-4 w-4 text-primary" />}
             num="05"
-            title="Where rates are likely to go in the next 6 to 12 months"
-            desc="The prediction is grounded in what actually happened before on this specific HS code: which year the rate last spiked, by how many percentage points, whether it recovered. We surface the historical volatility pattern alongside current geopolitical signals so you can see what tends to follow situations like this one."
-            source="USITC rate_history · hts_volatility table · 29-year spike analysis"
-          />
-          <Arrow />
-          <Stage
-            icon={<Lightbulb className="h-4 w-4 text-primary" />}
-            num="06"
-            title="One action with a dollar figure attached"
-            desc="Reroute to a lower-tariff country, accelerate the shipment before a rate change, or hold and wait. One recommendation. One number. No paragraph of maybes."
-            source="Groq llama-3.3-70b · grounded in the rate data above"
+            title="Two panels: compliance left, market right"
+            desc="The left panel shows everything customs needs — HS code, duty rate, required documents, certifications, labeling rules, common rejection reasons, and recent regulation changes. The right panel shows the market opportunity — local pricing, seller count, consumer sentiment, top complaints, landed cost breakdown, and your margin gap as a single big number."
+            source="Confidence-scored compliance · live market intelligence · margin gap"
           />
         </div>
       </div>

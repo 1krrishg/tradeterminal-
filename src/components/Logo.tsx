@@ -11,23 +11,19 @@ export function Logo({ className = "h-8 w-auto", withWordmark = false }: Props) 
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="h-full w-auto"
-        aria-label="TariffLens"
+        aria-label="TradeTerminal"
       >
-        {/* Globe circle */}
-        <circle cx="16" cy="16" r="11" fill="hsl(var(--primary))" />
-        {/* Latitude lines */}
-        <path d="M5 16h22M7 10.5h18M7 21.5h18" stroke="hsl(var(--primary-foreground))" strokeOpacity="0.4" strokeWidth="1.2" strokeLinecap="round" />
-        {/* Longitude arc */}
-        <path d="M16 5c-3 3-3 18 0 22M16 5c3 3 3 18 0 22" stroke="hsl(var(--primary-foreground))" strokeOpacity="0.4" strokeWidth="1.2" />
-        {/* Magnifier */}
-        <circle cx="20" cy="20" r="5" fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth="2" />
-        <line x1="24" y1="24" x2="27" y2="27" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" />
-        {/* Dollar inside lens */}
-        <text x="20" y="23" textAnchor="middle" fontSize="5" fill="hsl(var(--primary))" fontWeight="700">$</text>
+        {/* Globe */}
+        <circle cx="14" cy="14" r="10" fill="hsl(var(--primary))" />
+        <path d="M4 14h20M6 9h16M6 19h16" stroke="hsl(var(--primary-foreground))" strokeOpacity="0.4" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M14 4c-2.5 2.5-2.5 19 0 20M14 4c2.5 2.5 2.5 19 0 20" stroke="hsl(var(--primary-foreground))" strokeOpacity="0.4" strokeWidth="1.2" />
+        {/* Terminal prompt arrow */}
+        <rect x="20" y="20" width="10" height="10" rx="2" fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+        <text x="25" y="28" textAnchor="middle" fontSize="7" fill="hsl(var(--primary))" fontWeight="800">▸</text>
       </svg>
       {withWordmark && (
         <span className="text-base font-semibold tracking-tight text-foreground">
-          TariffLens
+          TradeTerminal
         </span>
       )}
     </span>

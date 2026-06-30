@@ -1,23 +1,23 @@
 const stats = [
   {
-    value: "12,788",
-    label: "Products in the USITC HTS catalog",
-    sub: "From soybeans (HS 1201) to semiconductors (HS 8542)",
+    value: "4",
+    label: "Live ecommerce markets scraped",
+    sub: "BigBasket (India) · Rakuten (Japan) · Mercado Libre (Brazil) · Zalando (Germany)",
   },
   {
-    value: "29 yrs",
-    label: "Of official MFN rate records",
-    sub: "USITC data going back to 1998 — every rate change on record",
+    value: "5",
+    label: "Regulatory sources per destination",
+    sub: "FSSAI · CBIC · Japan Customs · MHLW · EU TARIC — all live scraped",
   },
   {
-    value: "25+",
-    label: "Active retaliatory measures tracked",
-    sub: "China 25% on US ag, EU 25% on steel/whiskey, Canada 25%, India 20-100%",
+    value: "< 60s",
+    label: "From query to full dashboard",
+    sub: "Scrape → embed → RAG → extract → shipping → landed cost, all in one pipeline",
   },
   {
-    value: "$180B+",
-    label: "US export value under active retaliation",
-    sub: "Based on WTO trade flow data and live retaliatory tariff coverage",
+    value: "2B",
+    label: "Parameter model for extraction",
+    sub: "Qwen3.5-2B on Runpod Flash GPU — multilingual, structured JSON output",
   },
 ];
 

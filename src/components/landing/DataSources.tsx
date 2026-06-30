@@ -1,28 +1,28 @@
 export function DataSources() {
   const sources = [
     {
-      name: "USITC HTS Catalog",
-      detail: "262,000 rate records · 1998–2026",
-      badge: "Official",
-      desc: "US International Trade Commission official tariff schedule. Every MFN rate, every year, going back to 1998.",
-    },
-    {
-      name: "WTO Timeseries API",
-      detail: "HS_A_0010 · HS_A_0020",
-      badge: "Official",
-      desc: "World Trade Organization's official tariff API. We pull the current MFN rate for the destination country, not a cached estimate.",
-    },
-    {
-      name: "CBP CROSS",
-      detail: "120,000+ US Customs rulings",
-      badge: "Public",
-      desc: "US Customs and Border Protection's public ruling database. When we classify your product, we cite the actual ruling number.",
-    },
-    {
-      name: "Live retaliation data",
-      detail: "Scraped daily · 25+ measures",
+      name: "Bright Data Web Unlocker",
+      detail: "BigBasket · Rakuten · Mercado Libre · Zalando",
       badge: "Live",
-      desc: "China's 25% on US ag, EU's 25% on steel/whiskey, Canada's 25% on goods — tracked and updated when new measures land.",
+      desc: "Real-time ecommerce scraping across 4 major marketplaces. Prices, seller counts, and reviews pulled fresh per query — not cached from a database.",
+    },
+    {
+      name: "Government Portals",
+      detail: "FSSAI · CBIC · Japan Customs · MHLW · EU TARIC",
+      badge: "Official",
+      desc: "Regulatory documents scraped directly from import authority websites. Duty rates, certification requirements, and labeling rules by destination.",
+    },
+    {
+      name: "Qwen3.5-2B on Runpod Flash",
+      detail: "RAG extraction · AMPERE GPU · BGE-M3 embeddings",
+      badge: "AI",
+      desc: "Scraped text is chunked, embedded via BGE-M3, and retrieved against your query. Qwen3.5-2B extracts structured JSON — compliance fields and market data.",
+    },
+    {
+      name: "Freightos Shipping API",
+      detail: "Air · Sea · Road · per-route estimates",
+      badge: "Live",
+      desc: "Shipping cost estimates per corridor. Combined with duty rate and product cost to compute the full landed cost and margin gap.",
     },
   ];
 
@@ -38,6 +38,7 @@ export function DataSources() {
                 <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider ${
                   s.badge === "Official" ? "bg-primary/10 text-primary" :
                   s.badge === "Live" ? "bg-destructive/10 text-destructive" :
+                  s.badge === "AI" ? "bg-success/10 text-success" :
                   "bg-muted text-muted-foreground"
                 }`}>{s.badge}</span>
               </div>
