@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { analyzeRoute } from "@/lib/api";
+import { getDemoResult } from "@/lib/demo-data";
 import { useToast } from "@/hooks/use-toast";
 
 const COUNTRIES = [
@@ -49,6 +50,15 @@ export default function InputPage() {
       toast({ title: "Same country", description: "Origin and destination must be different.", variant: "destructive" });
       return;
     }
+
+    // Check demo cache first — instant, no backend needed
+    const demo = getDemoResult(product.trim(), origin, destination);
+    if (demo) {
+      navigate("/dashboard", { state: { result: demo } });
+      return;
+    }
+
+    // Live query — needs backend
     setLoading(true);
     setStage(0);
     const interval = setInterval(() => {
@@ -59,7 +69,11 @@ export default function InputPage() {
       const result = await analyzeRoute({ product: product.trim(), origin, destination });
       navigate("/dashboard", { state: { result } });
     } catch (err: any) {
-      toast({ title: "Analysis failed", description: err.message || "Could not connect to backend. Is it running?", variant: "destructive" });
+      toast({
+        title: "Backend not running",
+        description: "Start the Python backend (cd backend && python main.py) or use a demo route.",
+        variant: "destructive",
+      });
     } finally {
       clearInterval(interval);
       setLoading(false);
@@ -72,6 +86,11 @@ export default function InputPage() {
     setDestination(d.destination);
   };
 
+  const runDemo = (d: typeof DEMO_ROUTES[0]) => {
+    const result = getDemoResult(d.product, d.origin, d.destination);
+    if (result) navigate("/dashboard", { state: { result } });
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Nav */}
@@ -82,7 +101,7 @@ export default function InputPage() {
           </div>
           <span className="font-semibold text-foreground text-sm tracking-tight">TradeTerminal</span>
         </div>
-        <div className="text-xs text-muted-foreground">Powered by Runpod Flash · Bright Data · Freightos</div>
+        <div className="text-xs text-muted-foreground hidden sm:block">Runpod Flash · Bright Data · Freightos</div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
@@ -96,7 +115,7 @@ export default function InputPage() {
               Will it clear customs?<br />Will it make money?
             </h1>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
-              Enter a product, origin, and destination. Get compliance requirements + live market pricing in one dashboard.
+              Enter a product, origin, and destination. Get compliance requirements and live market pricing in one dashboard.
             </p>
           </div>
 
@@ -171,16 +190,16 @@ export default function InputPage() {
             )}
           </div>
 
-          {/* Demo routes */}
+          {/* Demo routes — click goes straight to dashboard, no backend */}
           <div className="text-center">
-            <div className="text-xs text-muted-foreground mb-2">Try a demo route:</div>
+            <div className="text-xs text-muted-foreground mb-2">Try a live demo (instant, no backend needed):</div>
             <div className="flex gap-2 justify-center flex-wrap">
               {DEMO_ROUTES.map(d => (
                 <button
                   key={`${d.origin}-${d.destination}`}
-                  onClick={() => fillDemo(d)}
+                  onClick={() => runDemo(d)}
                   disabled={loading}
-                  className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-primary/40 hover:bg-primary-soft hover:text-primary transition-colors text-muted-foreground"
+                  className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-primary/40 hover:bg-primary-soft hover:text-primary transition-colors text-muted-foreground cursor-pointer"
                 >
                   {d.product} · {d.origin} → {d.destination}
                 </button>
@@ -192,8 +211,8 @@ export default function InputPage() {
         {/* Value props */}
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl w-full text-center">
           {[
-            { icon: Shield, label: "Compliance", desc: "Required docs, certifications, duties, restrictions with confidence scores" },
-            { icon: TrendingUp, label: "Market Intel", desc: "Live local prices from BigBasket, Rakuten, Mercado Libre + sentiment" },
+            { icon: Shield, label: "Compliance", desc: "Required docs, certifications, duties, restrictions with confidence scores and source links" },
+            { icon: TrendingUp, label: "Market Intel", desc: "Live local prices from BigBasket, Rakuten, Mercado Libre + consumer sentiment" },
             { icon: Zap, label: "Margin Gap", desc: "Landed cost vs local price — instant go/no-go on profitability" },
           ].map(({ icon: Icon, label, desc }) => (
             <div key={label} className="p-4">
@@ -208,7 +227,7 @@ export default function InputPage() {
       </main>
 
       <footer className="border-t border-border px-6 py-4 text-center text-xs text-muted-foreground">
-        TradeTerminal · Built for Runpod Flash Hack Day · Runpod Flash + Bright Data + Freightos
+        TradeTerminal · Runpod Flash Hack Day · Built with Runpod Flash + Bright Data + Freightos
       </footer>
     </div>
   );
