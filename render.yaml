@@ -25,9 +25,8 @@ services:
         sync: false
 
   # 2. React Vite Frontend
-  - type: web
+  - type: static
     name: tradeterminal-frontend
-    env: static
     buildCommand: npm install && npm run build
     publishDir: dist
     routes:
