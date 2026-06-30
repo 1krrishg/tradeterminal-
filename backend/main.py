@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from demo_data import get_demo, DEMO_CACHE
 from scrapers import scrape_all
 from freightos import get_shipping_rate
+from supabase_cache import get_cached, save_result
 
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY", "")
@@ -58,13 +59,18 @@ async def analyze(req: AnalyzeRequest):
     if not product or not origin or not destination:
         raise HTTPException(status_code=400, detail="product, origin, and destination are required")
 
-    # 1. Check demo cache first
+    # 1. Check in-memory demo cache
     cached = get_demo(product, origin, destination)
-    if cached or DEMO_MODE:
-        if cached:
-            return cached
-        # DEMO_MODE but no cache — return first demo entry
+    if cached:
+        return cached
+    if DEMO_MODE:
         return next(iter(DEMO_CACHE.values()))
+
+    # 2. Check Supabase cache
+    db_cached = await get_cached(product, origin, destination)
+    if db_cached:
+        print(f"[analyze] Supabase cache hit for {product} {origin}→{destination}")
+        return db_cached
 
     # 2. Full pipeline — needs Runpod + Bright Data
     if not RUNPOD_API_KEY:
@@ -106,7 +112,7 @@ async def analyze(req: AnalyzeRequest):
         # 6. Landed cost + margin gap
         landed_cost, margin_gap, margin_label = _compute_economics(market, shipping, compliance)
 
-        return {
+        result = {
             "product": product,
             "origin": origin,
             "destination": destination,
@@ -119,6 +125,15 @@ async def analyze(req: AnalyzeRequest):
             "data_source": "Bright Data scraped · AI: Qwen3.5-2B on Runpod Flash · Shipping: Freightos",
             "cached": False,
         }
+
+        # Save to Supabase for future cache hits
+        try:
+            await save_result(product, origin, destination, result)
+            print(f"[analyze] Saved to Supabase cache")
+        except Exception as e:
+            print(f"[analyze] Supabase save failed (non-fatal): {e}")
+
+        return result
 
     except Exception as e:
         print(f"[analyze] ERROR: {e}")
