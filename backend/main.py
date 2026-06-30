@@ -103,7 +103,15 @@ async def analyze(req: AnalyzeRequest):
         extracted = await extract_trade_data(query, chunks)
 
         compliance = extracted.get("compliance", {})
-        market = extracted.get("market", {})
+        # Merge live scraped market data with LLM-extracted market data
+        llm_market = extracted.get("market", {})
+        ms = scraped.get("market_summary", {})
+        market = {
+            **llm_market,
+            "local_avg_price": ms.get("avg_price") or llm_market.get("local_avg_price", "N/A"),
+            "local_price_range": ms.get("price_range") or llm_market.get("local_price_range", "N/A"),
+            "seller_count": ms.get("seller_count") or llm_market.get("seller_count", 0),
+        }
 
         # 5. Freightos shipping
         print(f"[analyze] Fetching shipping rates")
